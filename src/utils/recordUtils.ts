@@ -47,15 +47,6 @@ export function mergeRecordsById(existing: LogBoxRecord[], incoming: LogBoxRecor
   return [...byId.values()].sort((a, b) => (b.timeISO ?? '').localeCompare(a.timeISO ?? ''));
 }
 
-export function formatRecordDateTime(iso: string | undefined): string {
-  if (!iso) return '없음';
-  try {
-    return new Date(iso).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return iso;
-  }
-}
-
 export function formatRecordSummary(raw: string | undefined, deviceName?: string): string {
   if (!raw) return deviceName ?? '알 수 없는 활동';
   const oneLine = raw.replace(/\s+/g, ' ').trim();

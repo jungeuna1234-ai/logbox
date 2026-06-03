@@ -256,18 +256,18 @@ type ContextValue = State & {
 
 const LogBoxContext = createContext<ContextValue | undefined>(undefined);
 
+async function syncGmailFromToken(token: AuthToken, geocodingKey?: string | null): Promise<LogBoxRecord[]> {
+  if (isDemoToken(token)) return [];
+  const fetched = await fetchSecurityEmails(token.accessToken, geocodingKey ?? undefined);
+  if (fetched.length === 0) return [];
+  return enrichThreatLevels(fetched);
+}
+
 export const LogBoxProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, undefined, initialMock);
   const hydratedRef = useRef(false);
 
-  const syncGmailFromToken = async (token: AuthToken, geocodingKey?: string | null): Promise<LogBoxRecord[]> => {
-    if (isDemoToken(token)) return [];
-    const fetched = await fetchSecurityEmails(token.accessToken, geocodingKey ?? undefined);
-    if (fetched.length === 0) return [];
-    return enrichThreatLevels(fetched);
-  };
-
-  const applyLiveAuth = async (token: AuthToken): Promise<void> => {
+  const applyLiveAuth = useCallback(async (token: AuthToken): Promise<void> => {
     dispatch({ type: 'SET_LOADING', value: true });
     try {
       const geok = await loadGeocodingKey();
@@ -299,7 +299,7 @@ export const LogBoxProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } finally {
       dispatch({ type: 'SET_LOADING', value: false });
     }
-  };
+  }, [state.geocodingApiKey, state.records]);
 
   useEffect(() => {
     if (hydratedRef.current) return;

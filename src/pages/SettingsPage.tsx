@@ -38,11 +38,11 @@ interface ToggleSwitchProps {
 const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
   id, checked, onChange, disabled = false, accentColor = 'emerald',
 }) => {
-  const trackOn  = accentColor === 'naver' ? 'bg-[#03C75A]' : 'bg-emerald-500';
-  const trackOff = 'bg-slate-700';
+  const trackOn  = accentColor === 'naver' ? 'bg-[#03C75A]' : 'bg-[#FF2E63]';
+  const trackOff = 'bg-[#0B0C10]';
   const glowOn   = accentColor === 'naver'
     ? 'shadow-[0_0_14px_rgba(3,199,90,0.60)]'
-    : 'shadow-[0_0_14px_rgba(52,211,153,0.60)]';
+    : 'shadow-[0_0_14px_rgba(255,46,99,0.60)]';
 
   return (
     <button
@@ -51,10 +51,10 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
       aria-checked={checked}
       disabled={disabled}
       onClick={onChange}
-      className={`relative w-14 h-7 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-40 active:scale-95 ${
+      className={`relative w-14 h-7 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#FF2E63]/40 disabled:opacity-40 active:scale-95 ${
         checked
           ? `${trackOn} border-transparent ${glowOn}`
-          : `${trackOff} border-slate-600 hover:border-slate-500`
+          : `${trackOff} border-white/5 hover:border-white/20`
       }`}
     >
       <span
@@ -63,6 +63,39 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
         }`}
       />
     </button>
+  );
+};
+
+// ──────────────────────────────────────────────────
+// 커스텀 알림 모달
+// ──────────────────────────────────────────────────
+interface UnregisterModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const UnregisterModal: React.FC<UnregisterModalProps> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-[#12141C] border border-[#FF2E63]/30 rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 animate-[modalIn_0.25s_ease-out]">
+        <div className="flex flex-col items-center gap-2 text-[#FF2E63] text-center">
+          <span className="material-symbols-outlined text-4xl animate-pulse">info</span>
+          <h3 className="text-base font-bold tracking-wider">회원탈퇴 안내</h3>
+        </div>
+        <p className="text-xs text-slate-400 text-center leading-relaxed">
+          회원탈퇴 기능은 현재 데모 시스템에서 준비 중입니다.<br />
+          정식 버전 출시 이후 이용해 주시기 바랍니다.
+        </p>
+        <button
+          onClick={onClose}
+          className="w-full bg-[#FF2E63] text-[#0B0C10] py-2.5 rounded-xl text-xs font-bold hover:bg-[#ff4d7c] active:scale-95 transition-all"
+        >
+          확인
+        </button>
+      </div>
+    </div>
   );
 };
 
@@ -86,6 +119,7 @@ const SettingsPage: React.FC = () => {
   // ── 알림 스위치 상태 ──────────────────────────────
   const [alertOnThreat, setAlertOnThreat] = useState<boolean>(false);
   const [showLockHint, setShowLockHint] = useState<boolean>(false);
+  const [showUnregisterModal, setShowUnregisterModal] = useState<boolean>(false);
 
   // 연동 해제 시 알림도 강제 비활성화
   useEffect(() => {
@@ -136,93 +170,91 @@ const SettingsPage: React.FC = () => {
   // RENDER
   // ──────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#05070a] text-slate-100 px-5 py-7 pb-36">
-      <div className="max-w-md w-full mx-auto">
+    <div className="min-h-screen bg-[#0B0C10] text-white px-6 py-7 pb-28 select-none relative font-sans">
+      <div className="max-w-md w-full mx-auto space-y-6">
 
         {/* ── 헤더 ── */}
-        <header className="mb-8 flex items-center justify-between">
+        <header className="pb-4 border-b border-white/5 flex items-center justify-between">
           <div>
-            <p className="text-base text-slate-500 font-medium">개인 설정</p>
-            <h1 className="mt-1.5 text-3xl font-bold text-white">보안과 계정 관리</h1>
+            <h1 className="text-xl font-extrabold tracking-wider text-white">보안과 계정 설정</h1>
+            <p className="text-[10px] text-slate-500 font-mono mt-1">개인 계정 정보 및 보안 환경을 관리합니다.</p>
           </div>
         </header>
 
         {/* ── 보안 달력 ── */}
-        <section className="mb-6 rounded-3xl border border-slate-800/80 bg-[#15181e] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.25)]">
-          <div className="mb-5 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-white">이번 달 보안 현황</h2>
-              <p className="mt-1 text-base text-slate-400">수집된 로그를 기반으로 위험도를 확인하세요.</p>
-            </div>
+        <section className="rounded-2xl border border-white/5 bg-[#12141C] p-6 shadow-lg">
+          <div className="mb-5">
+            <h2 className="text-base font-bold text-white tracking-wider">이번 달 보안 현황</h2>
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5">수집된 위협 로그 기반 일별 상태 대시보드</p>
           </div>
 
-          <div className="grid grid-cols-7 gap-1.5 text-center text-sm font-bold text-slate-400 mb-4">
-            {['일', '월', '화', '수', '목', '금', '토'].map((weekday) => (
+          <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-bold text-slate-500 mb-3 font-mono">
+            {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((weekday) => (
               <div key={weekday}>{weekday}</div>
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1.5 text-base text-slate-200">
+          <div className="grid grid-cols-7 gap-1.5 text-xs text-slate-300">
             {dateStatuses.map((status, index) => (
               <div
                 key={index}
-                className="rounded-2xl border border-slate-800/60 bg-slate-950/70 py-3 px-1.5 transition duration-200 hover:border-slate-600 hover:bg-slate-900"
+                className="rounded-xl border border-white/5 bg-[#0B0C10]/80 py-2.5 px-1.5 flex flex-col items-center justify-center transition duration-200 hover:border-white/10 hover:bg-[#161923]"
               >
-                <div className="font-semibold text-sm">{index + 1}</div>
-                <div className={`mx-auto mt-2 w-2 h-2 rounded-full ${getDotClass(status)}`} />
+                <div className="font-semibold text-[10px] font-mono text-slate-400">{index + 1}</div>
+                <div className={`mt-1.5 w-1.5 h-1.5 rounded-full ${getDotClass(status)}`} />
               </div>
             ))}
           </div>
 
           <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-2xl bg-slate-950/80 p-4">
-              <p className="text-sm font-semibold text-slate-500">안전</p>
-              <p className="mt-2 text-2xl font-bold text-emerald-400">{stats.safe}</p>
+            <div className="rounded-xl bg-[#0B0C10] border border-white/5 p-3">
+              <p className="text-[10px] font-semibold text-slate-500 font-mono">안전</p>
+              <p className="mt-1 text-lg font-bold text-[#00F5D4] font-mono">{stats.safe}</p>
             </div>
-            <div className="rounded-2xl bg-slate-950/80 p-4">
-              <p className="text-sm font-semibold text-slate-500">주의</p>
-              <p className="mt-2 text-2xl font-bold text-amber-400">{stats.caution}</p>
+            <div className="rounded-xl bg-[#0B0C10] border border-white/5 p-3">
+              <p className="text-[10px] font-semibold text-slate-500 font-mono">주의</p>
+              <p className="mt-1 text-lg font-bold text-amber-400 font-mono">{stats.caution}</p>
             </div>
-            <div className="rounded-2xl bg-slate-950/80 p-4">
-              <p className="text-sm font-semibold text-slate-500">위험</p>
-              <p className="mt-2 text-2xl font-bold text-rose-500">{stats.danger}</p>
+            <div className="rounded-xl bg-[#0B0C10] border border-white/5 p-3">
+              <p className="text-[10px] font-semibold text-slate-500 font-mono">위험</p>
+              <p className="mt-1 text-lg font-bold text-[#FF2E63] font-mono">{stats.danger}</p>
             </div>
           </div>
         </section>
 
         {/* ── 계정 및 알림 관리 섹션 ── */}
         <section className="space-y-4">
-          <div className="rounded-3xl border border-slate-800/80 bg-[#15181e] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.2)]">
-            <div className="mb-6">
-              <h2 className="text-xl font-bold text-white">계정 연동 관리</h2>
-              <p className="mt-1.5 text-base text-slate-400">네이버 연동과 보안 알림을 한 곳에서 설정합니다.</p>
+          <div className="rounded-2xl border border-white/5 bg-[#12141C] p-6 shadow-lg space-y-5">
+            <div>
+              <h2 className="text-base font-bold text-white tracking-wider">계정 연동 관리</h2>
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5">외부 플랫폼 연동 및 수신 알림 설정</p>
             </div>
 
             <div className="space-y-4">
 
               {/* ── [A] 네이버 계정 연동 카드 ──────────────── */}
-              <div className="rounded-3xl border border-slate-800/80 bg-[#0f1320] p-5">
+              <div className="rounded-2xl border border-white/5 bg-[#161923] p-5 space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   {/* 좌측: 아이콘 + 타이틀 */}
-                  <div className="flex items-center gap-4">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#03C75A] text-base font-bold text-white shadow-[0_4px_16px_rgba(3,199,90,0.35)]">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#03C75A] text-sm font-black text-white shadow-[0_4px_16px_rgba(3,199,90,0.25)]">
                       N
                     </span>
                     <div>
-                      <p className="text-base font-bold text-white">네이버 계정 연동</p>
-                      <p className="mt-0.5 text-sm text-slate-500">
+                      <p className="text-xs font-bold text-white">네이버 계정 연동</p>
+                      <p className="mt-0.5 text-[10px] text-slate-500">
                         {isNaverConnected
                           ? '네이버 계정이 연결되었습니다.'
-                          : '보안 알림을 받으려면 연동이 필요합니다.'}
+                          : '보안 메일 분석을 위해 연동이 필요합니다.'}
                       </p>
                     </div>
                   </div>
 
                   {/* 우측: 상태 배지 */}
-                  <div className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                  <div className={`shrink-0 rounded-full px-2.5 py-0.5 text-[9px] font-bold ${
                     isNaverConnected
-                      ? 'bg-[#03C75A]/15 text-[#03C75A]'
-                      : 'bg-slate-700/80 text-slate-400'
+                      ? 'bg-[#03C75A]/20 text-[#03C75A] border border-[#03C75A]/30'
+                      : 'bg-slate-800 text-slate-500 border border-slate-700/50'
                   }`}>
                     {isNaverConnected ? '연동 완료' : '미연동'}
                   </div>
@@ -230,20 +262,20 @@ const SettingsPage: React.FC = () => {
 
                 {/* 연동 완료 상태: 이메일 + 해제 버튼 */}
                 {isNaverConnected && naverEmail && (
-                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-950/70 px-5 py-4">
+                  <div className="flex items-center justify-between rounded-xl bg-[#0B0C10] border border-white/5 px-4 py-3">
                     <div>
-                      <p className="text-xs text-slate-500 font-semibold mb-1">연결된 계정</p>
-                      <p className="text-base font-bold text-white">{naverEmail}</p>
+                      <p className="text-[9px] text-slate-500 font-mono">연결된 계정</p>
+                      <p className="text-xs font-bold text-white font-mono mt-0.5">{naverEmail}</p>
                     </div>
                     <button
                       type="button"
                       onClick={disconnectNaver}
                       disabled={naverDisconnecting}
-                      className="shrink-0 ml-3 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-950/30 px-4 py-2 text-sm font-bold text-rose-400 hover:bg-rose-950/60 hover:border-rose-500/60 active:scale-95 disabled:opacity-50 transition-all duration-200"
+                      className="shrink-0 ml-3 flex items-center gap-1.5 rounded-lg border border-[#FF2E63]/30 bg-[#FF2E63]/10 px-3 py-1.5 text-[10px] font-bold text-[#FF2E63] hover:bg-[#FF2E63]/25 active:scale-95 disabled:opacity-50 transition-all duration-200"
                     >
                       {naverDisconnecting ? (
                         <>
-                          <span className="w-4 h-4 border border-rose-400/60 border-t-rose-400 rounded-full animate-spin" />
+                          <span className="w-3 h-3 border border-[#FF2E63]/60 border-t-[#FF2E63] rounded-full animate-spin" />
                           해제 중
                         </>
                       ) : (
@@ -259,49 +291,49 @@ const SettingsPage: React.FC = () => {
                     type="button"
                     id="naver-connect-btn"
                     onClick={connectNaver}
-                    className="mt-4 w-full flex items-center justify-center gap-2.5 rounded-2xl bg-[#03C75A] py-3.5 text-base font-bold text-white shadow-[0_0_20px_rgba(3,199,90,0.25)] hover:bg-[#02b350] hover:shadow-[0_0_28px_rgba(3,199,90,0.45)] active:scale-[0.98] transition-all duration-200"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#03C75A] py-3 text-xs font-bold text-white shadow-[0_0_15px_rgba(3,199,90,0.2)] hover:bg-[#02b350] hover:shadow-[0_0_22px_rgba(3,199,90,0.35)] active:scale-[0.98] transition-all duration-200"
                   >
-                    <span className="text-lg font-black">N</span>
+                    <span className="text-sm font-black">N</span>
                     네이버로 연결하기
                   </button>
                 )}
               </div>
 
               {/* ── [B] 구글 계정 (로그인 연동) ── */}
-              <div className="rounded-3xl border border-slate-800/80 bg-[#0f1320] p-5 opacity-60">
+              <div className="rounded-2xl border border-white/5 bg-[#161923] p-5 opacity-60">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-base font-semibold text-slate-950 shadow-[0_4px_16px_rgba(0,0,0,0.18)]">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-[#0B0C10] shadow-[0_4px_16px_rgba(255,255,255,0.15)]">
                       G
                     </span>
                     <div>
-                      <p className="text-base font-bold text-white">구글 계정 연동</p>
-                      <p className="mt-0.5 text-sm text-slate-500">로그인 시 구글 계정으로 자동 연동됩니다.</p>
+                      <p className="text-xs font-bold text-white">구글 계정 연동</p>
+                      <p className="mt-0.5 text-[10px] text-slate-500">로그인 시 구글 계정으로 자동 연동됩니다.</p>
                     </div>
                   </div>
-                  <div className="shrink-0 rounded-full px-3 py-1 text-xs font-bold bg-slate-700/80 text-slate-400">
+                  <div className="shrink-0 rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-slate-800 text-slate-500 border border-slate-700/50">
                     자동 연동
                   </div>
                 </div>
               </div>
 
               {/* ── [C] 위협 감지 알림 스위치 ── */}
-              <div className={`rounded-3xl border bg-[#0f1320] p-5 transition-all duration-300 ${
+              <div className={`rounded-2xl border bg-[#161923] p-5 transition-all duration-300 ${
                 isNaverConnected
-                  ? 'border-slate-800/80'
-                  : 'border-slate-800/40 opacity-70'
+                  ? 'border-white/5'
+                  : 'border-white/5 opacity-50'
               }`}>
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-base font-bold text-white flex items-center gap-2">
+                    <p className="text-xs font-bold text-white flex items-center gap-1.5">
                       위협 감지 즉시 알림
                       {!isNaverConnected && (
-                        <span className="text-xs font-semibold text-slate-600 normal-case">
+                        <span className="text-[9px] font-semibold text-slate-500">
                           (네이버 연동 필요)
                         </span>
                       )}
                     </p>
-                    <p className="mt-1.5 text-sm text-slate-500">이상 접근 징후를 놓치지 않고 즉시 안내합니다.</p>
+                    <p className="mt-1 text-[10px] text-slate-500">이상 접근 징후를 감지하여 알림을 보냅니다.</p>
                   </div>
 
                   <ToggleSwitch
@@ -314,7 +346,7 @@ const SettingsPage: React.FC = () => {
 
                 {/* 차단 안내 토스트 인라인 */}
                 {showLockHint && (
-                  <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-amber-950/25 px-4 py-3 text-sm text-amber-400 font-semibold animate-[fadeIn_0.2s_ease-out]">
+                  <div className="mt-3.5 flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-950/25 px-4 py-2.5 text-[10px] text-orange-400 font-semibold animate-[fadeIn_0.2s_ease-out]">
                     <span>⚠</span>
                     <span>네이버 계정을 먼저 연동해 주세요.</span>
                   </div>
@@ -326,18 +358,18 @@ const SettingsPage: React.FC = () => {
         </section>
 
         {/* ── 로그아웃 / 회원탈퇴 ── */}
-        <div className="mt-10 flex flex-col items-center gap-4">
+        <div className="pt-4 flex flex-col items-center gap-3.5">
           <button
             type="button"
             onClick={handleLogout}
-            className="text-base text-slate-400 hover:text-white transition-colors duration-200 font-medium"
+            className="text-xs text-slate-400 hover:text-[#FF2E63] active:scale-95 transition-all font-semibold tracking-wider"
           >
             로그아웃
           </button>
           <button
             type="button"
-            onClick={() => alert('회원탈퇴는 아직 구현되지 않았습니다.')}
-            className="text-sm text-slate-600 hover:text-rose-400 transition-colors duration-200"
+            onClick={() => setShowUnregisterModal(true)}
+            className="text-[10px] text-slate-600 hover:text-[#FF2E63]/80 active:scale-95 transition-all font-mono"
           >
             회원탈퇴
           </button>
@@ -345,11 +377,21 @@ const SettingsPage: React.FC = () => {
 
       </div>
 
+      {/* 🎭 회원탈퇴 커스텀 안내 모달 */}
+      <UnregisterModal
+        isOpen={showUnregisterModal}
+        onClose={() => setShowUnregisterModal(false)}
+      />
+
       {/* 인라인 애니메이션 */}
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(4px); }
           to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes modalIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to   { opacity: 1; transform: scale(1); }
         }
       `}</style>
     </div>

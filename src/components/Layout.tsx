@@ -4,9 +4,9 @@ import { NavLink, Outlet } from 'react-router-dom';
 type Tab = { to: string; label: string; icon: string; end?: boolean; ariaLabel?: string };
 
 const tabs: Tab[] = [
-  { to: '/',         label: '홈',  icon: 'home',            end: true },
-  { to: '/security', label: '보안', icon: 'shield',          ariaLabel: '통합 보안 관제' },
-  { to: '/base',     label: '알림', icon: 'notifications',   ariaLabel: '거점·기기 관리' },
+  { to: '/',         label: '홈',  icon: 'home',     end: true },
+  { to: '/security', label: '보안', icon: 'shield',   ariaLabel: 'LogBox 메일센터' },
+  { to: '/base',     label: '거점', icon: 'devices',  ariaLabel: '거점 기기 관리' },
   { to: '/settings', label: '설정', icon: 'settings' },
 ];
 

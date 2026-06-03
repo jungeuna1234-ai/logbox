@@ -1,357 +1,635 @@
+// =============================================================================
 // src/pages/SecurityPage.tsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useLogBox, SecurityLog } from '../context/LogBoxContext';
+// LogBox 메일센터 — 프리미엄 다크 사이버펑크 테마 및 커스텀 모달 UI 연동
+// =============================================================================
 
-// ──────────────────────────────────────────────────
-// 가상 비동기 API 통신 시뮬레이션 (85% 성공, 15% 500 에러)
-// ──────────────────────────────────────────────────
-const simulateApiCall = async (): Promise<void> => {
-  return new Promise<void>((resolve, reject) => {
-    setTimeout(() => {
-      if (Math.random() > 0.15) resolve();
-      else reject(new Error('Network Error 500 (Internal Server Error)'));
-    }, 1200);
-  });
-};
+import React, { useState, useCallback, useRef } from 'react';
+import { useLogBox } from '../context/LogBoxContext';
+import { TrustedDevice } from '../types';
 
-// ──────────────────────────────────────────────────
-// 토스트 컴포넌트
-// ──────────────────────────────────────────────────
-interface ToastProps {
-  message: string;
-  type: 'success' | 'error';
+// =============================================================================
+// ① 타입 정의
+// =============================================================================
+
+interface Email {
+  id: string;
+  from: string;
+  subject: string;
+  timeAgo: string;
+  riskScore: number; // 0~100
+  body: string;
+  platform: 'naver' | 'google' | 'other';
 }
 
-const Toast: React.FC<ToastProps> = ({ message, type }) => (
-  <div
-    className={`fixed bottom-24 left-1/2 -translate-x-1/2 px-5 py-3 rounded-2xl border text-xs font-mono font-semibold tracking-wide flex items-center gap-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.6)] animate-fade-in z-[60] ${
-      type === 'success'
-        ? 'bg-[#05110d]/90 border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
-        : 'bg-[#110508]/90 border-rose-500/30 text-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.2)]'
-    }`}
-  >
-    <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white/10 text-[10px]">
-      {type === 'success' ? '✔' : '✕'}
-    </span>
-    <span>{message}</span>
-  </div>
-);
+// =============================================================================
+// ② 초기 데이터 상수
+// =============================================================================
 
-// ──────────────────────────────────────────────────
-// 위협 콘솔 로그 아이템
-// ──────────────────────────────────────────────────
-const LogLine: React.FC<{ log: SecurityLog }> = ({ log }) => {
-  const isAlert = log.level !== 'INFO';
-  return (
-    <div
-      className={`font-mono text-[10px] leading-relaxed px-2 py-1 rounded-lg flex gap-2 items-start ${
-        isAlert
-          ? 'bg-rose-950/20 border-l-2 border-rose-500'
-          : 'border-l-2 border-transparent'
-      }`}
-    >
-      {/* 타임스탬프 */}
-      <span className="text-slate-600 shrink-0">{log.timestamp}</span>
-      {/* 레벨 배지 */}
-      {isAlert ? (
-        <span className="text-rose-400 font-bold shrink-0">
-          {log.level === 'SPOOFED_EMAIL' ? '[🚨 SPOOFED]' : '[🚨 TAMPERED]'}
-        </span>
-      ) : (
-        <span className="text-emerald-600/70 shrink-0">[INFO]</span>
-      )}
-      {/* 메시지 */}
-      <span className={isAlert ? 'text-rose-300/80' : 'text-slate-500'}>{log.message}</span>
-    </div>
-  );
+const HACKER_DEVICE_INFO = {
+  id: 'hacker-device-001',
+  name: 'Windows PC · Chrome (해커)',
+  model: 'Unknown PC',
+  os: 'Windows 11',
+  browser: 'Chrome 124',
+  trusted: false,
+  isCurrent: false,
+  lastActive: new Date().toISOString(),
+  lastSeen: new Date().toISOString(),
+  ip: '194.87.145.22',
+  location: 'Moscow, Russia',
+  isHacker: true,
+} as TrustedDevice & { ip: string; location: string; isHacker: boolean };
+
+const INITIAL_EMAILS: Email[] = [
+  {
+    id: 'email-001',
+    from: 'support@paypai-verify.com',
+    subject: '귀하의 계정 보안 확인이 필요합니다',
+    timeAgo: '2분 전',
+    riskScore: 92,
+    platform: 'google',
+    body: `안녕하세요,
+
+최근 귀하의 PayPal 계정에서 비정상적인 활동이 감지되었습니다. 계정 보안을 위해 24시간 이내에 본인 확인이 필요합니다.
+
+아래 링크를 클릭주셔 즉시 확인해주세요.
+https://paypai-verify.com/secure/login
+
+확인하지 않으실 경우 귀 계정이 일시 정지될 수 있습니다.
+
+PayPal 보안팀`,
+  },
+  {
+    id: 'email-002',
+    from: 'noreply@bank-security.net',
+    subject: '이상 거래 감지 — 즉시 확인 요청',
+    timeAgo: '15분 전',
+    riskScore: 88,
+    platform: 'google',
+    body: `고객님께,
+
+귀하의 계좌에서 비정상적인 이체 시도가 감지되었습니다.
+금액: ₩3,500,000 | 대상: 해외 계좌
+
+즉시 확인이 필요합니다. 본인이 아닌 경우 아래 링크를 통해 신고해 주세요.`,
+  },
+  {
+    id: 'email-003',
+    from: 'admin@amazon-notice.org',
+    subject: '주문 취소 알림 — 환불 처리',
+    timeAgo: '1시간 전',
+    riskScore: 75,
+    platform: 'google',
+    body: `Amazon 고객님께,
+
+최근 주문(#114-4829-293)이 취소 처리되었습니다.
+환불금 처리를 위해 결제 정보를 재확인해 주세요.`,
+  },
+  {
+    id: 'email-004',
+    from: 'team@netflix-renewal.com',
+    subject: '구독 갱신 실패 — 결제 정보 업데이트',
+    timeAgo: '3시간 전',
+    riskScore: 71,
+    platform: 'google',
+    body: `Netflix 회원님,
+
+결제 정보 업데이트가 필요합니다. 지금 업데이트하지 않으면 서비스가 중단됩니다.`,
+  },
+];
+
+const NAVER_PHISHING_EMAIL: Email = {
+  id: 'email-naver-001',
+  from: 'noreply@naver-support.kr.com',
+  subject: '[네이버] 계정 보안 위협 감지 — 즉시 비밀번호 변경 필요',
+  timeAgo: '방금 전',
+  riskScore: 95,
+  platform: 'naver',
+  body: `네이버 회원님께,
+
+네이버 고객센터입니다.
+
+귀하의 계정에서 해외(러시아, Moscow) IP 주소(194.87.145.22)로부터 무단 로그인 시도가 감지되었습니다.
+
+보안을 위해 즉시 아래 링크에서 비밀번호를 변경해 주십시오.
+https://naver-support.kr.com/secure/password-reset
+
+⚠ 이 메일은 24시간 후 만료됩니다.
+
+네이버 보안팀 드림`,
 };
 
-// ──────────────────────────────────────────────────
-// 🛡️ 메인 SecurityPage
-// ──────────────────────────────────────────────────
-const SecurityPage: React.FC = () => {
-  const { securityLogs, addSecurityLog } = useLogBox();
+// =============================================================================
+// ③ 위험도 점수 → 색상 유틸리티
+// =============================================================================
 
-  // ── 토스트 상태 ──
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+function getRiskColor(score: number): string {
+  if (score >= 90) return 'text-[#FF2E63]';
+  if (score >= 70) return 'text-orange-400';
+  return 'text-yellow-400';
+}
 
-  const showToast = useCallback((message: string, type: 'success' | 'error') => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast({ message, type });
-    toastTimerRef.current = setTimeout(() => setToast(null), 3500);
-  }, []);
+function getRiskBg(score: number): string {
+  if (score >= 90) return 'bg-[#FF2E63]/15 border-[#FF2E63]/30';
+  if (score >= 70) return 'bg-orange-400/15 border-orange-400/25';
+  return 'bg-yellow-400/15 border-yellow-400/25';
+}
 
-  // ── 피싱 분석 패널 상태 ──
-  const [spoofedDetected] = useState<boolean>(true); // 데모: 위조 메일 감지 상태
-  const [linkIsolation, setLinkIsolation] = useState<boolean>(false);
-  const [isolationLoading, setIsolationLoading] = useState<boolean>(false);
+function getRiskLabel(score: number): string {
+  if (score >= 90) return '🚨 매우 위험 — 사기 메일로 의심됩니다!';
+  if (score >= 70) return '⚠️ 위험 — 피싱 시도 가능성 높음';
+  return '⚠️ 주의 — 의심스러운 메일';
+}
 
-  const handleIsolationToggle = useCallback(async () => {
-    if (isolationLoading) return;
-    setIsolationLoading(true);
-    const next = !linkIsolation;
-    try {
-      await simulateApiCall();
-      setLinkIsolation(next);
-      showToast(
-        next ? '악성 URL 격리가 활성화되었습니다.' : '링크 격리가 해제되었습니다.',
-        'success',
-      );
-    } catch {
-      showToast('서버 통신에 실패했습니다. (500)', 'error');
-    } finally {
-      setIsolationLoading(false);
-    }
-  }, [isolationLoading, linkIsolation, showToast]);
+// =============================================================================
+// ④ 서브 컴포넌트: 분석 결과 상세 카드
+// =============================================================================
 
-  // ── 위협 콘솔: 5초 타이머 기반 로그 생성 ──
-  const consoleBottomRef = useRef<HTMLDivElement>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+interface AnalysisCardProps {
+  email: Email;
+  onBack: () => void;
+  onBlockClick: () => void;
+}
 
-  const INFO_MESSAGES = [
-    'Packet integrity check passed.',
-    'Auth token validated.',
-    'TLS handshake OK.',
-    'Session heartbeat ACK.',
-    'DNS query resolved.',
-    'Firewall rule applied.',
-    'Geo-fence boundary OK.',
-    'Device fingerprint matched.',
-    'Rate limit check passed.',
-    'Encryption layer nominal.',
-  ];
-
-  const generateLog = useCallback((): SecurityLog => {
-    const rand = Math.random();
-    const now = new Date().toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-    const id = `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-    if (rand < 0.15) {
-      return { id, timestamp: now, level: 'SPOOFED_EMAIL', message: 'Spoofed sender detected via DKIM mismatch.' };
-    }
-    if (rand < 0.30) {
-      return { id, timestamp: now, level: 'TOKEN_TAMPERED', message: 'JWT signature verification failed — replay attack suspected.' };
-    }
-    const msg = INFO_MESSAGES[Math.floor(Math.random() * INFO_MESSAGES.length)];
-    return { id, timestamp: now, level: 'INFO', message: msg };
-  }, []);
-
-  // 마운트 시 즉시 첫 로그 + 5초마다 생성, 언마운트 후에도 Context에 영속
-  useEffect(() => {
-    // 기존 로그가 없을 때만 초기 로그 생성
-    if (securityLogs.length === 0) {
-      addSecurityLog(generateLog());
-    }
-
-    intervalRef.current = setInterval(() => {
-      addSecurityLog(generateLog());
-    }, 5000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [addSecurityLog, generateLog]);
-
-  // 새 로그 추가 시 스크롤 최상단 유지 (최신 로그 상단)
-  useEffect(() => {
-    if (consoleBottomRef.current) {
-      consoleBottomRef.current.scrollTop = 0;
-    }
-  }, [securityLogs.length]);
-
+const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick }) => {
   return (
-    <div className="min-h-screen bg-[#05070a] text-white font-sans select-none pb-28">
-      {/* ── 최상단 배지 ── */}
-      <div className="flex items-center justify-center pt-5 pb-3 px-4">
-        <div className="flex items-center gap-2 bg-[#1a0a1a]/80 border border-rose-500/30 rounded-full px-4 py-1.5 shadow-[0_0_16px_rgba(244,63,94,0.2)]">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_6px_rgba(244,63,94,1)]" />
-          <span className="text-[11px] font-mono font-bold tracking-widest text-rose-400 uppercase">
-            Security Admin Only
-          </span>
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shadow-[0_0_6px_rgba(244,63,94,1)]" />
+    <div className="bg-[#12141C] border border-white/5 rounded-2xl p-6 mb-6 space-y-5 animate-[fadeIn_0.3s_ease-out]">
+      <button
+        id="back-to-email-list"
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-[#FF2E63] text-xs font-semibold hover:opacity-85 transition-opacity"
+      >
+        <span>← 목록으로 돌아가기</span>
+      </button>
+
+      <h1 className="text-lg font-bold text-white tracking-wider">메일 정밀 스캔 결과</h1>
+
+      {/* ── 메일 원문 카드 ── */}
+      <div className="bg-[#0B0C10] border border-white/5 rounded-xl p-5 space-y-4">
+        <div>
+          <p className="text-[10px] text-slate-500 font-mono mb-0.5">발신자</p>
+          <p className="text-xs font-bold text-[#FF2E63] font-mono">{email.from}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-500 font-mono mb-0.5">제목</p>
+          <p className="text-sm font-bold text-white">{email.subject}</p>
+        </div>
+        <div>
+          <p className="text-[10px] text-slate-500 font-mono mb-1.5">본문</p>
+          <div className="bg-[#12141C]/80 border border-white/5 rounded-lg p-4">
+            <p className="text-xs text-slate-300 font-mono leading-relaxed whitespace-pre-line">
+              {email.body}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* ── 2분할 메인 패널 ── */}
-      <div className="px-3 flex flex-col gap-3 lg:flex-row lg:gap-4 lg:px-5">
+      {/* ── AI 분석 결과 카드 ── */}
+      <div
+        className={`rounded-xl border p-5 ${getRiskBg(email.riskScore)}`}
+        style={{
+          background:
+            email.riskScore >= 90
+              ? 'linear-gradient(135deg, rgba(255,46,99,0.15) 0%, rgba(255,46,99,0.05) 100%)'
+              : 'linear-gradient(135deg, rgba(249,115,22,0.15) 0%, rgba(249,115,22,0.05) 100%)',
+          boxShadow:
+            email.riskScore >= 90
+              ? '0 0 24px rgba(255,46,99,0.08)'
+              : '0 0 20px rgba(249,115,22,0.05)',
+        }}
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <span className="material-symbols-outlined text-xs text-white">psychology</span>
+          <span className="text-[10px] font-bold text-white tracking-widest uppercase font-mono">
+            AI 보안 인텔리전스
+          </span>
+        </div>
 
-        {/* ════════════════════════════════════
-            좌측 패널: 피싱 분석
-            ════════════════════════════════════ */}
-        <section
-          className="flex-1 bg-[#0d0f14]/90 border border-slate-800/60 rounded-2xl p-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-md"
-          aria-label="피싱 분석 패널"
-        >
-          {/* 패널 헤더 */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-rose-950/40 border border-rose-500/30 flex items-center justify-center">
-              <span className="text-rose-400 text-sm">📧</span>
-            </div>
-            <div>
-              <h2 className="text-xs font-bold text-slate-200 tracking-wide">피싱 분석</h2>
-              <p className="text-[10px] text-slate-500 font-mono">Email Threat Intelligence</p>
-            </div>
-          </div>
+        <p className={`text-base font-extrabold mb-4 ${getRiskColor(email.riskScore)}`}>
+          {getRiskLabel(email.riskScore)}
+        </p>
 
-          {/* SPOOFED 경고 배너 */}
-          {spoofedDetected && (
-            <div
-              className="mb-4 px-3 py-2.5 rounded-xl border border-rose-500/50 bg-rose-950/20 shadow-[0_0_16px_rgba(244,63,94,0.15)]"
-              style={{ animation: 'spoofedPulse 1.6s ease-in-out infinite' }}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-rose-400 text-sm shrink-0">⚠️</span>
-                <div>
-                  <p className="text-[11px] font-bold font-mono text-rose-400 tracking-widest uppercase">
-                    SPOOFED (위조됨)
-                  </p>
-                  <p className="text-[10px] text-rose-300/70 mt-0.5">
-                    발신자 도메인 불일치 · DKIM 서명 위조 감지
-                  </p>
-                </div>
-              </div>
-              <div className="mt-2 text-[9px] font-mono text-slate-500 space-y-0.5">
-                <p>FROM: no-reply@g00gle-security.net</p>
-                <p>SPF: <span className="text-rose-400">FAIL</span> · DKIM: <span className="text-rose-400">FAIL</span> · DMARC: <span className="text-rose-400">FAIL</span></p>
-              </div>
-            </div>
-          )}
-
-          {/* 링크 격리 토글 */}
-          <div className="bg-[#111417]/80 border border-slate-800/50 rounded-xl p-3 mb-3">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-xs font-semibold text-slate-200">LINK ISOLATION</p>
-                <p className="text-[10px] text-slate-500 font-mono">악성 URL 자동 격리 차단</p>
-              </div>
-              {/* 토글 스위치 */}
-              <button
-                id="link-isolation-toggle"
-                onClick={handleIsolationToggle}
-                disabled={isolationLoading}
-                aria-checked={linkIsolation}
-                role="switch"
-                className={`relative w-11 h-6 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-60 active:scale-95 ${
-                  linkIsolation
-                    ? 'bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
-                    : 'bg-slate-800 border-slate-700 hover:border-slate-600'
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 w-5 h-5 rounded-full transition-all duration-300 flex items-center justify-center ${
-                    linkIsolation
-                      ? 'left-5 bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]'
-                      : 'left-0.5 bg-slate-500'
-                  }`}
-                >
-                  {isolationLoading && (
-                    <span className="w-2 h-2 border border-white/60 border-t-transparent rounded-full animate-spin" />
-                  )}
-                </span>
-              </button>
-            </div>
-            <div
-              className={`text-[10px] font-mono rounded-lg px-2 py-1.5 ${
-                linkIsolation
-                  ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20'
-                  : 'text-slate-500 bg-slate-900/50 border border-slate-800'
-              }`}
-            >
-              {linkIsolation
-                ? '✔ 격리 활성 — 모든 링크가 샌드박스 검사 후 전달됩니다.'
-                : '○ 격리 비활성 — 링크가 필터링 없이 전달됩니다.'}
-            </div>
-          </div>
-
-          {/* 법적 안내문 */}
-          <div className="bg-[#0a0c10]/60 border border-slate-800/30 rounded-xl p-3">
-            <p className="text-[9px] font-mono text-slate-600 leading-relaxed">
-              <span className="text-slate-500 font-bold">⚖ 법적 고지 (Legal Notice)</span><br />
-              본 격리 기능은 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」 제48조에 따라
-              악성 콘텐츠 접근 차단 목적으로만 사용됩니다. 무단 콘텐츠 수집·분석 행위는
-              동법 제49조 위반에 해당하며 민·형사상 책임이 발생할 수 있습니다.
-            </p>
-          </div>
-        </section>
-
-        {/* ════════════════════════════════════
-            우측 패널: 위협 콘솔
-            ════════════════════════════════════ */}
-        <section
-          className="flex-1 bg-[#060809]/95 border border-slate-800/60 rounded-2xl p-4 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur-md flex flex-col"
-          aria-label="위협 콘솔 패널"
-        >
-          {/* 콘솔 헤더 */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center">
-                <span className="text-emerald-400 text-sm">⌨</span>
-              </div>
-              <div>
-                <h2 className="text-xs font-bold text-slate-200 tracking-wide">위협 콘솔</h2>
-                <p className="text-[10px] text-slate-500 font-mono">Real-time Threat Stream</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_5px_rgba(52,211,153,1)]" />
-              <span className="text-[10px] font-mono text-emerald-400/80">LIVE</span>
-            </div>
-          </div>
-
-          {/* 터미널 콘솔 */}
-          <div
-            ref={consoleBottomRef}
-            className="flex-1 bg-[#020304] border border-slate-900 rounded-xl p-3 overflow-y-auto max-h-[300px] min-h-[180px] space-y-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent"
-            style={{ fontFamily: "'JetBrains Mono', 'Fira Code', monospace" }}
-          >
-            {/* 터미널 헤더 줄 */}
-            <div className="text-[10px] font-mono text-slate-700 mb-2 pb-2 border-b border-slate-900">
-              logbox-threat-stream v2.4.1 · 5s interval · max 100 entries
-            </div>
-            {securityLogs.length === 0 ? (
-              <div className="text-[10px] text-slate-700 font-mono animate-pulse">
-                초기화 중...
-              </div>
-            ) : (
-              securityLogs.map((log) => <LogLine key={log.id} log={log} />)
-            )}
-          </div>
-
-          {/* 콘솔 하단 상태 바 */}
-          <div className="mt-2 flex items-center justify-between px-1">
-            <span className="text-[9px] font-mono text-slate-700">
-              {securityLogs.length} / 100 entries
-            </span>
-            <span className="text-[9px] font-mono text-slate-700">
-              위협: {securityLogs.filter(l => l.level !== 'INFO').length}건
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[9px] font-mono text-slate-500">위협 스코어</span>
+            <span className={`text-xs font-bold font-mono ${getRiskColor(email.riskScore)}`}>
+              {email.riskScore} / 100
             </span>
           </div>
-        </section>
+          <div className="w-full h-2 bg-[#0B0C10] rounded-full overflow-hidden border border-white/5">
+            <div
+              className="h-full rounded-full transition-all duration-1000"
+              style={{
+                width: `${email.riskScore}%`,
+                background:
+                  email.riskScore >= 90
+                    ? 'linear-gradient(90deg, #FF2E63, #d61c4e)'
+                    : 'linear-gradient(90deg, #f97316, #dc2626)',
+                boxShadow:
+                  email.riskScore >= 90
+                    ? '0 0 10px rgba(255,46,99,0.6)'
+                    : '0 0 8px rgba(249,115,22,0.5)',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* 🔗 탐지된 위협 URL 분석 결과 */}
+        <div className="mb-4 p-4 rounded-xl bg-[#0B0C10]/60 border border-[#FF2E63]/20 space-y-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-[#FF2E63]">
+            <span className="material-symbols-outlined text-xs">link</span>
+            <span>🔗 탐지된 위협 URL 분석 결과</span>
+          </div>
+          <p className="text-[11px] text-slate-300 font-mono leading-relaxed">
+            메일 본문에 포함된 도메인 <span className="text-[#FF2E63] font-bold">[secure-auth-update.net]</span> 추적 결과, KISA 및 글로벌 보안 인텔리전스 기준 피싱 사기 사이트로 등록된 블랙리스트 주소임이 검증되었습니다.
+          </p>
+        </div>
+
+        <div>
+          <p className="text-[10px] font-bold text-slate-300 mb-2">✅ 권장 대응 지침</p>
+          <ul className="space-y-1">
+            {[
+              '이메일의 링크를 절대 클릭하지 마세요',
+              '계정정보나 금융정보를 절대 입력하지 마세요',
+              '해당 메일을 즉시 스팸 및 위협으로 신고하세요',
+              '공식 채널을 통해 본인이 요청한 이벤트인지 재차 검증하세요',
+            ].map((tip) => (
+              <li key={tip} className="flex items-start gap-2 text-[10px] text-slate-400 font-mono">
+                <span className="text-[#FF2E63] shrink-0 mt-0.5">•</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
-      {/* 토스트 */}
-      {toast && <Toast message={toast.message} type={toast.type} />}
-
-      {/* 네온 펄스 애니메이션 인젝션 */}
-      <style>{`
-        @keyframes spoofedPulse {
-          0%, 100% { box-shadow: 0 0 8px rgba(244,63,94,0.15); border-color: rgba(244,63,94,0.4); }
-          50% { box-shadow: 0 0 20px rgba(244,63,94,0.4); border-color: rgba(244,63,94,0.7); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-      `}</style>
+      <button
+        id="block-threat-email-btn"
+        onClick={onBlockClick}
+        className="w-full py-4 rounded-xl font-bold text-[#0B0C10] text-sm tracking-wider bg-[#FF2E63] hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200 shadow-[0_0_15px_rgba(255,46,99,0.3)]"
+      >
+        🔒 위협 메일 즉시 차단 및 영구 격리
+      </button>
     </div>
   );
 };
+
+// =============================================================================
+// ⑤ 서브 컴포넌트: 메일 목록 아이템
+// =============================================================================
+
+interface EmailRowProps {
+  email: Email;
+  onAnalyze: (id: string) => void;
+  isNew?: boolean;
+  isActive?: boolean;
+}
+
+const EmailRow: React.FC<EmailRowProps> = ({ email, onAnalyze, isNew, isActive }) => (
+  <div
+    className={`flex items-center justify-between p-6 rounded-2xl border transition-all duration-300 relative ${
+      isActive
+        ? 'border-[#FF2E63] bg-[#161923] shadow-[0_0_20px_rgba(255,46,99,0.1)]'
+        : isNew
+        ? 'border-[#FF2E63]/60 bg-[#12141C] shadow-[0_0_20px_rgba(255,46,99,0.12)]'
+        : 'border-white/5 bg-[#12141C] hover:border-[#FF2E63]/30'
+    }`}
+    style={
+      isNew
+        ? { animation: 'slideInFromTop 0.4s cubic-bezier(0.22, 1, 0.36, 1)' }
+        : undefined
+    }
+  >
+    {isActive && (
+      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#FF2E63] rounded-l-2xl animate-[pointBar_0.2s_ease-out]" />
+    )}
+    
+    {/* 메일 정보 */}
+    <div className="flex-1 min-w-0 mr-4 pl-2">
+      {email.platform === 'naver' && (
+        <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#00F5D4]/10 text-[#00F5D4] border border-[#00F5D4]/20 mb-1.5 font-mono shadow-[0_0_10px_rgba(0,245,212,0.1)]">
+          NAVER
+        </span>
+      )}
+      <p className="text-[10px] text-[#FF2E63] font-mono mb-0.5 truncate">{email.from}</p>
+      <p className="text-sm font-semibold text-white mb-0.5 truncate">{email.subject}</p>
+      <p className="text-[10px] text-slate-500 font-mono">{email.timeAgo}</p>
+    </div>
+
+    {/* 분석 버튼 */}
+    <button
+      id={`analyze-btn-${email.id}`}
+      onClick={() => onAnalyze(email.id)}
+      className="shrink-0 px-4 py-2 rounded-xl font-bold text-xs text-[#0B0C10] bg-[#FF2E63] hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200 shadow-[0_2px_12px_rgba(255,46,99,0.25)]"
+    >
+      {isActive ? '분석 중' : '분석'}
+    </button>
+  </div>
+);
+
+// =============================================================================
+// ⑥ 서브 컴포넌트: 로그인 전 화면 (데모 버전 메인)
+// =============================================================================
+
+interface PreLoginScreenProps {
+  onGoogleLogin: () => void;
+}
+
+const PreLoginScreen: React.FC<PreLoginScreenProps> = ({ onGoogleLogin }) => (
+  <div className="min-h-screen bg-[#0B0C10] text-white font-sans p-6 pb-28">
+    {/* 상단 배지 */}
+    <div className="flex items-center justify-center pt-2 pb-4">
+      <div className="flex items-center gap-2 bg-[#12141C] border border-[#FF2E63]/30 rounded-full px-4 py-1.5 shadow-[0_0_16px_rgba(255,46,99,0.1)]">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E63] animate-pulse" />
+        <span className="text-[10px] font-mono font-bold tracking-widest text-[#FF2E63] uppercase">
+          LogBox Mail Security
+        </span>
+        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E63] animate-pulse" />
+      </div>
+    </div>
+
+    <div className="max-w-md mx-auto space-y-6">
+      {/* 타이틀 */}
+      <div className="text-center mt-2">
+        <h1 className="text-2xl font-extrabold text-white">이메일 보안 분석</h1>
+        <p className="text-xs text-slate-500 mt-1">로그인하면 실시간 위협 탐지 엔진이 작동합니다</p>
+      </div>
+
+      {/* 의심스러운 접근 경고 박스 */}
+      <div className="rounded-2xl border border-[#FF2E63]/50 p-6 bg-[#12141C] shadow-[0_0_24px_rgba(255,46,99,0.1)] animate-[alertPulse_2.5s_infinite_ease-in-out]">
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-[#FF2E63] text-2xl animate-bounce">warning</span>
+          <div className="space-y-3">
+            <p className="text-sm font-extrabold text-[#FF2E63]">의심스러운 외부 기기 감지!</p>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              귀하의 계정에 알 수 없는 러시아 IP 주소의 기기에서 비정상적인 접근 시도가 감지되었습니다.
+              구글 로그인 후 보안 메일을 스캔하여 안전 조치를 취하세요.
+            </p>
+            {/* 해커 기기 정보 */}
+            <div className="bg-[#0B0C10] rounded-xl p-4 border border-white/5">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-mono">
+                <span className="text-slate-500">기기</span>
+                <span className="text-[#FF2E63]/80 font-bold">{HACKER_DEVICE_INFO.model} · {HACKER_DEVICE_INFO.os}</span>
+                <span className="text-slate-500">브라우저</span>
+                <span className="text-slate-300">{HACKER_DEVICE_INFO.browser}</span>
+                <span className="text-slate-500">IP 주소</span>
+                <span className="text-[#FF2E63]/80">{HACKER_DEVICE_INFO.ip}</span>
+                <span className="text-slate-500">위치</span>
+                <span className="text-slate-300">🌍 {HACKER_DEVICE_INFO.location}</span>
+                <span className="text-slate-500">감지 시각</span>
+                <span className="text-[#FF2E63]/80">방금 전</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 구글 로그인 버튼 */}
+      <button
+        id="google-login-btn"
+        onClick={onGoogleLogin}
+        className="w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-white text-sm bg-[#12141C] border border-white/5 shadow-md hover:border-[#FF2E63]/30 hover:shadow-[0_0_15px_rgba(255,46,99,0.1)] active:scale-95 transition-all duration-200"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Google로 로그인하여 보안 스캔 시작
+      </button>
+
+      {/* 기능 프리뷰 */}
+      <div className="space-y-2 pt-2">
+        {[
+          { icon: '📧', label: '수신 메일 피싱 AI 자동 분석' },
+          { icon: '🔐', label: '접속 기기 실시간 감시 · 원격 로그아웃' },
+          { icon: '🌐', label: '네이버·구글 멀티 계정 통합 보안' },
+        ].map((f) => (
+          <div
+            key={f.label}
+            className="flex items-center gap-3 p-4 rounded-xl bg-[#12141C] border border-white/5 text-xs text-slate-400 font-mono"
+          >
+            <span className="text-lg">{f.icon}</span>
+            <span>{f.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// =============================================================================
+// ⑦ 메인 컴포넌트: SecurityPage (로그인 후 대시보드)
+// =============================================================================
+
+const SecurityPage: React.FC = () => {
+  const { authToken } = useLogBox();
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!authToken);
+  const [isNaverConnected, setIsNaverConnected] = useState<boolean>(false);
+  const [isNaverLoading, setIsNaverLoading] = useState<boolean>(false);
+  const [emails, setEmails] = useState<Email[]>(INITIAL_EMAILS);
+  const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+
+  // 커스텀 토스트 상태
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const emailListRef = useRef<HTMLDivElement>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage(message);
+    setToastType(type);
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  }, []);
+
+  const handleGoogleLogin = useCallback(() => {
+    setIsLoggedIn(true);
+  }, []);
+
+  const handleNaverConnect = useCallback(() => {
+    if (isNaverConnected || isNaverLoading) return;
+
+    setIsNaverLoading(true);
+
+    setTimeout(() => {
+      setIsNaverLoading(false);
+      setIsNaverConnected(true);
+      setEmails((prev) => [NAVER_PHISHING_EMAIL, ...prev]);
+
+      showToast("네이버 계정 연동에 성공했습니다.", "success");
+
+      setTimeout(() => {
+        emailListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+    }, 1000);
+  }, [isNaverConnected, isNaverLoading, showToast]);
+
+  const handleAnalyze = useCallback((emailId: string) => {
+    setSelectedEmailId(emailId);
+  }, []);
+
+  const handleBackToList = useCallback(() => {
+    setSelectedEmailId(null);
+  }, []);
+
+  // ── [위협 메일 차단 및 영구 격리 처리] ──
+  const handleBlockEmail = useCallback(() => {
+    if (!selectedEmailId) return;
+    
+    setEmails((prev) => prev.filter((e) => e.id !== selectedEmailId));
+    setSelectedEmailId(null);
+    showToast("해당 위협 메일 발신처가 즉시 차단되고 영구 격리 공간으로 이동되었습니다.", "success");
+  }, [selectedEmailId, showToast]);
+
+  if (!isLoggedIn) {
+    return (
+      <>
+        <PreLoginScreen onGoogleLogin={handleGoogleLogin} />
+        <GlobalStyles />
+      </>
+    );
+  }
+
+  const selectedEmail = emails.find((e) => e.id === selectedEmailId);
+
+  return (
+    <div className="min-h-screen bg-[#0B0C10] text-white font-sans p-6 pb-28 select-none relative flex flex-col gap-6">
+      <GlobalStyles />
+
+      {/* ── 상단 헤더 ── */}
+      <header className="flex justify-between items-center w-full pb-4 border-b border-white/5">
+        <div>
+          <h1 className="text-xl font-extrabold tracking-wider text-white">이메일 보안 분석</h1>
+          <p className="text-[10px] text-slate-500 font-mono mt-1">
+            {emails.length}개 스캔 완료 ·{' '}
+            <span className="text-[#FF2E63] font-semibold">
+              {emails.filter((e) => e.riskScore >= 70).length}건 위험 감지
+            </span>
+          </p>
+        </div>
+
+        {/* 네이버 연동 버튼 */}
+        <button
+          id="naver-connect-btn"
+          onClick={handleNaverConnect}
+          disabled={isNaverConnected || isNaverLoading}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 ${
+            isNaverConnected
+              ? 'bg-[#00F5D4] text-[#0B0C10] border-transparent shadow-[0_0_14px_rgba(0,245,212,0.4)] cursor-default'
+              : isNaverLoading
+              ? 'bg-[#12141C] border border-white/5 text-slate-500 cursor-wait'
+              : 'bg-[#FF2E63] text-white border-transparent shadow-[0_0_14px_rgba(255,46,99,0.3)] hover:shadow-[0_0_20px_rgba(255,46,99,0.5)] active:scale-95'
+          }`}
+        >
+          {isNaverLoading ? (
+            <>
+              <span className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+              연동 중...
+            </>
+          ) : isNaverConnected ? (
+            '✓ 연동 완료'
+          ) : (
+            <>
+              <span className="text-xs font-black">N</span>
+              네이버 연동하기
+            </>
+          )}
+        </button>
+      </header>
+
+      {/* ── 메일 목록 ── */}
+      <div ref={emailListRef} className="space-y-3">
+        {emails.map((email) => (
+          <EmailRow
+            key={email.id}
+            email={email}
+            onAnalyze={handleAnalyze}
+            isNew={email.platform === 'naver' && isNaverConnected}
+            isActive={email.id === selectedEmailId}
+          />
+        ))}
+      </div>
+
+      {/* ── 선택된 메일의 정밀 분석 카드 (목록 아래에 배치) ── */}
+      {selectedEmail && (
+        <AnalysisCard
+          email={selectedEmail}
+          onBack={handleBackToList}
+          onBlockClick={handleBlockEmail}
+        />
+      )}
+
+      {/* 🍞 글로벌 다크 네온 토스트 팝업 */}
+      {toastMessage && (
+        <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl border text-xs font-mono font-semibold tracking-wide flex items-center gap-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.6)] transition-all duration-300 animate-fade-in z-[60] ${
+          toastType === 'success' 
+            ? 'bg-[#12141C] border-[#00F5D4]/30 text-[#00F5D4] shadow-[0_0_20px_rgba(0,245,212,0.15)]' 
+            : 'bg-[#12141C] border-[#FF2E63]/30 text-[#FF2E63] shadow-[0_0_20px_rgba(255,46,99,0.15)]'
+        }`}>
+          <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white/5 text-[10px]">
+            {toastType === 'success' ? '✔' : '✕'}
+          </span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// =============================================================================
+// ⑧ 전역 애니메이션 스타일 주입
+// =============================================================================
+
+const GlobalStyles: React.FC = () => (
+  <style>{`
+    @keyframes slideInFromTop {
+      from {
+        opacity: 0;
+        transform: translateY(-16px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes alertPulse {
+      0%, 100% {
+        box-shadow: 0 0 16px rgba(255, 46, 99, 0.05);
+        border-color: rgba(255, 46, 99, 0.3);
+      }
+      50% {
+        box-shadow: 0 0 28px rgba(255, 46, 99, 0.2);
+        border-color: rgba(255, 46, 99, 0.6);
+      }
+    }
+
+    @keyframes modalIn {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes pointBar {
+      from {
+        transform: scaleY(0);
+      }
+      to {
+        transform: scaleY(1);
+      }
+    }
+  `}</style>
+);
 
 export default SecurityPage;

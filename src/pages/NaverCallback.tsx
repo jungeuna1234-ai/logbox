@@ -58,7 +58,7 @@ const NaverCallback: React.FC = () => {
           네이버 계정 연동 처리 중
         </p>
         <p className="text-xs text-slate-500 font-mono">
-          인가 코드 수신 완료 · 연동 상태 동기화 중...
+          네이버 로그인 성공! 내 계정 연결하는 중...
         </p>
       </div>
     </div>

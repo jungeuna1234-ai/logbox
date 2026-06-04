@@ -40,9 +40,6 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
 }) => {
   const trackOn  = accentColor === 'naver' ? 'bg-[#03C75A]' : 'bg-[#FF2E63]';
   const trackOff = 'bg-[#0B0C10]';
-  const glowOn   = accentColor === 'naver'
-    ? 'shadow-[0_0_14px_rgba(3,199,90,0.60)]'
-    : 'shadow-[0_0_14px_rgba(255,46,99,0.60)]';
 
   return (
     <button
@@ -53,8 +50,8 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
       onClick={onChange}
       className={`relative w-14 h-7 rounded-full border transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[#FF2E63]/40 disabled:opacity-40 active:scale-95 ${
         checked
-          ? `${trackOn} border-transparent ${glowOn}`
-          : `${trackOff} border-white/5 hover:border-white/20`
+          ? `${trackOn} border-transparent`
+          : `${trackOff} border-white/10 hover:border-white/20`
       }`}
     >
       <span
@@ -79,9 +76,9 @@ const UnregisterModal: React.FC<UnregisterModalProps> = ({ isOpen, onClose }) =>
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#12141C] border border-[#FF2E63]/30 rounded-2xl p-6 w-full max-w-sm shadow-2xl space-y-4 animate-[modalIn_0.25s_ease-out]">
+      <div className="bg-[#121318] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-xl space-y-4 animate-[modalIn_0.25s_ease-out]">
         <div className="flex flex-col items-center gap-2 text-[#FF2E63] text-center">
-          <span className="material-symbols-outlined text-4xl animate-pulse">info</span>
+          <span className="material-symbols-outlined text-4xl">info</span>
           <h3 className="text-base font-bold tracking-wider">회원탈퇴 안내</h3>
         </div>
         <p className="text-xs text-slate-400 text-center leading-relaxed">
@@ -167,14 +164,12 @@ const SettingsPage: React.FC = () => {
   );
 
   // ──────────────────────────────────────────────────
-  // RENDER
-  // ──────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0B0C10] text-white px-6 py-7 pb-28 select-none relative font-sans">
       <div className="max-w-md w-full mx-auto space-y-6">
 
         {/* ── 헤더 ── */}
-        <header className="pb-4 border-b border-white/5 flex items-center justify-between">
+        <header className="pb-4 border-b border-white/10 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-extrabold tracking-wider text-white">보안과 계정 설정</h1>
             <p className="text-[10px] text-slate-500 font-mono mt-1">개인 계정 정보 및 보안 환경을 관리합니다.</p>
@@ -182,10 +177,10 @@ const SettingsPage: React.FC = () => {
         </header>
 
         {/* ── 보안 달력 ── */}
-        <section className="rounded-2xl border border-white/5 bg-[#12141C] p-6 shadow-lg">
+        <section className="rounded-2xl border border-white/10 bg-[#121318] p-6 shadow-lg">
           <div className="mb-5">
             <h2 className="text-base font-bold text-white tracking-wider">이번 달 보안 현황</h2>
-            <p className="text-[10px] text-slate-500 font-mono mt-0.5">수집된 위협 로그 기반 일별 상태 대시보드</p>
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5">수집된 해킹 시도 기록 기반 달력</p>
           </div>
 
           <div className="grid grid-cols-7 gap-1.5 text-center text-[10px] font-bold text-slate-500 mb-3 font-mono">
@@ -194,11 +189,11 @@ const SettingsPage: React.FC = () => {
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1.5 text-xs text-slate-300">
+          <div className="grid grid-cols-7 gap-1.5 text-xs text-[#94A3B8]">
             {dateStatuses.map((status, index) => (
               <div
                 key={index}
-                className="rounded-xl border border-white/5 bg-[#0B0C10]/80 py-2.5 px-1.5 flex flex-col items-center justify-center transition duration-200 hover:border-white/10 hover:bg-[#161923]"
+                className="rounded-xl border border-white/10 bg-[#0B0C10]/80 py-2.5 px-1.5 flex flex-col items-center justify-center transition duration-200 hover:border-white/20 hover:bg-[#181920]"
               >
                 <div className="font-semibold text-[10px] font-mono text-slate-400">{index + 1}</div>
                 <div className={`mt-1.5 w-1.5 h-1.5 rounded-full ${getDotClass(status)}`} />
@@ -207,15 +202,15 @@ const SettingsPage: React.FC = () => {
           </div>
 
           <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl bg-[#0B0C10] border border-white/5 p-3">
+            <div className="rounded-xl bg-[#0B0C10] border border-white/10 p-3">
               <p className="text-[10px] font-semibold text-slate-500 font-mono">안전</p>
               <p className="mt-1 text-lg font-bold text-[#00F5D4] font-mono">{stats.safe}</p>
             </div>
-            <div className="rounded-xl bg-[#0B0C10] border border-white/5 p-3">
+            <div className="rounded-xl bg-[#0B0C10] border border-white/10 p-3">
               <p className="text-[10px] font-semibold text-slate-500 font-mono">주의</p>
               <p className="mt-1 text-lg font-bold text-amber-400 font-mono">{stats.caution}</p>
             </div>
-            <div className="rounded-xl bg-[#0B0C10] border border-white/5 p-3">
+            <div className="rounded-xl bg-[#0B0C10] border border-white/10 p-3">
               <p className="text-[10px] font-semibold text-slate-500 font-mono">위험</p>
               <p className="mt-1 text-lg font-bold text-[#FF2E63] font-mono">{stats.danger}</p>
             </div>
@@ -224,7 +219,7 @@ const SettingsPage: React.FC = () => {
 
         {/* ── 계정 및 알림 관리 섹션 ── */}
         <section className="space-y-4">
-          <div className="rounded-2xl border border-white/5 bg-[#12141C] p-6 shadow-lg space-y-5">
+          <div className="rounded-2xl border border-white/10 bg-[#121318] p-6 shadow-lg space-y-5">
             <div>
               <h2 className="text-base font-bold text-white tracking-wider">계정 연동 관리</h2>
               <p className="text-[10px] text-slate-500 font-mono mt-0.5">외부 플랫폼 연동 및 수신 알림 설정</p>
@@ -233,16 +228,16 @@ const SettingsPage: React.FC = () => {
             <div className="space-y-4">
 
               {/* ── [A] 네이버 계정 연동 카드 ──────────────── */}
-              <div className="rounded-2xl border border-white/5 bg-[#161923] p-5 space-y-4">
+              <div className="rounded-2xl border border-white/10 bg-[#181920] p-5 space-y-4">
                 <div className="flex items-start justify-between gap-4">
                   {/* 좌측: 아이콘 + 타이틀 */}
                   <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#03C75A] text-sm font-black text-white shadow-[0_4px_16px_rgba(3,199,90,0.25)]">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#03C75A] text-sm font-black text-white">
                       N
                     </span>
                     <div>
                       <p className="text-xs font-bold text-white">네이버 계정 연동</p>
-                      <p className="mt-0.5 text-[10px] text-slate-500">
+                      <p className="mt-0.5 text-[10px] text-[#94A3B8]">
                         {isNaverConnected
                           ? '네이버 계정이 연결되었습니다.'
                           : '보안 메일 분석을 위해 연동이 필요합니다.'}
@@ -256,13 +251,13 @@ const SettingsPage: React.FC = () => {
                       ? 'bg-[#03C75A]/20 text-[#03C75A] border border-[#03C75A]/30'
                       : 'bg-slate-800 text-slate-500 border border-slate-700/50'
                   }`}>
-                    {isNaverConnected ? '연동 완료' : '미연동'}
+                    {isNaverConnected ? '연결 완료' : '연결 안 됨'}
                   </div>
                 </div>
 
                 {/* 연동 완료 상태: 이메일 + 해제 버튼 */}
                 {isNaverConnected && naverEmail && (
-                  <div className="flex items-center justify-between rounded-xl bg-[#0B0C10] border border-white/5 px-4 py-3">
+                  <div className="flex items-center justify-between rounded-xl bg-[#0B0C10] border border-white/10 px-4 py-3">
                     <div>
                       <p className="text-[9px] text-slate-500 font-mono">연결된 계정</p>
                       <p className="text-xs font-bold text-white font-mono mt-0.5">{naverEmail}</p>
@@ -271,7 +266,7 @@ const SettingsPage: React.FC = () => {
                       type="button"
                       onClick={disconnectNaver}
                       disabled={naverDisconnecting}
-                      className="shrink-0 ml-3 flex items-center gap-1.5 rounded-lg border border-[#FF2E63]/30 bg-[#FF2E63]/10 px-3 py-1.5 text-[10px] font-bold text-[#FF2E63] hover:bg-[#FF2E63]/25 active:scale-95 disabled:opacity-50 transition-all duration-200"
+                      className="shrink-0 ml-3 flex items-center gap-1.5 rounded-lg border border-[#FF2E63]/30 bg-transparent px-3 py-1.5 text-[10px] font-bold text-[#FF2E63] hover:bg-[#FF2E63]/10 active:scale-95 disabled:opacity-50 transition-all duration-200"
                     >
                       {naverDisconnecting ? (
                         <>
@@ -279,7 +274,7 @@ const SettingsPage: React.FC = () => {
                           해제 중
                         </>
                       ) : (
-                        '연동 해제'
+                        '연결 끊기'
                       )}
                     </button>
                   </div>
@@ -291,7 +286,7 @@ const SettingsPage: React.FC = () => {
                     type="button"
                     id="naver-connect-btn"
                     onClick={connectNaver}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#03C75A] py-3 text-xs font-bold text-white shadow-[0_0_15px_rgba(3,199,90,0.2)] hover:bg-[#02b350] hover:shadow-[0_0_22px_rgba(3,199,90,0.35)] active:scale-[0.98] transition-all duration-200"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#03C75A] py-3 text-xs font-bold text-white hover:bg-[#02b350] active:scale-[0.98] transition-all duration-200"
                   >
                     <span className="text-sm font-black">N</span>
                     네이버로 연결하기
@@ -300,15 +295,15 @@ const SettingsPage: React.FC = () => {
               </div>
 
               {/* ── [B] 구글 계정 (로그인 연동) ── */}
-              <div className="rounded-2xl border border-white/5 bg-[#161923] p-5 opacity-60">
+              <div className="rounded-2xl border border-white/10 bg-[#181920] p-5 opacity-60">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-[#0B0C10] shadow-[0_4px_16px_rgba(255,255,255,0.15)]">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-black text-[#0B0C10]">
                       G
                     </span>
                     <div>
                       <p className="text-xs font-bold text-white">구글 계정 연동</p>
-                      <p className="mt-0.5 text-[10px] text-slate-500">로그인 시 구글 계정으로 자동 연동됩니다.</p>
+                      <p className="mt-0.5 text-[10px] text-[#94A3B8]">로그인 시 구글 계정으로 자동 연동됩니다.</p>
                     </div>
                   </div>
                   <div className="shrink-0 rounded-full px-2.5 py-0.5 text-[9px] font-bold bg-slate-800 text-slate-500 border border-slate-700/50">
@@ -318,10 +313,10 @@ const SettingsPage: React.FC = () => {
               </div>
 
               {/* ── [C] 위협 감지 알림 스위치 ── */}
-              <div className={`rounded-2xl border bg-[#161923] p-5 transition-all duration-300 ${
+              <div className={`rounded-2xl border border-white/10 bg-[#181920] p-5 transition-all duration-300 ${
                 isNaverConnected
-                  ? 'border-white/5'
-                  : 'border-white/5 opacity-50'
+                  ? ''
+                  : 'opacity-50'
               }`}>
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -333,7 +328,7 @@ const SettingsPage: React.FC = () => {
                         </span>
                       )}
                     </p>
-                    <p className="mt-1 text-[10px] text-slate-500">이상 접근 징후를 감지하여 알림을 보냅니다.</p>
+                    <p className="mt-1 text-[10px] text-[#94A3B8]">이상 접근 징후를 감지하여 알림을 보냅니다.</p>
                   </div>
 
                   <ToggleSwitch
@@ -346,7 +341,7 @@ const SettingsPage: React.FC = () => {
 
                 {/* 차단 안내 토스트 인라인 */}
                 {showLockHint && (
-                  <div className="mt-3.5 flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-950/25 px-4 py-2.5 text-[10px] text-orange-400 font-semibold animate-[fadeIn_0.2s_ease-out]">
+                  <div className="mt-3.5 flex items-center gap-2 rounded-xl border border-orange-500/30 bg-transparent px-4 py-2.5 text-[10px] text-orange-400 font-semibold animate-[fadeIn_0.2s_ease-out]">
                     <span>⚠</span>
                     <span>네이버 계정을 먼저 연동해 주세요.</span>
                   </div>
@@ -362,7 +357,7 @@ const SettingsPage: React.FC = () => {
           <button
             type="button"
             onClick={handleLogout}
-            className="text-xs text-slate-400 hover:text-[#FF2E63] active:scale-95 transition-all font-semibold tracking-wider"
+            className="text-xs text-[#94A3B8] hover:text-[#FF2E63] active:scale-95 transition-all font-semibold tracking-wider"
           >
             로그아웃
           </button>

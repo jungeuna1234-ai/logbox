@@ -153,7 +153,7 @@ interface AnalysisCardProps {
 
 const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick }) => {
   return (
-    <div className="bg-[#12141C] border border-white/5 rounded-2xl p-6 mb-6 space-y-5 animate-[fadeIn_0.3s_ease-out]">
+    <div className="bg-[#121318] border border-white/10 rounded-2xl p-6 mb-6 space-y-5 animate-[fadeIn_0.3s_ease-out]">
       <button
         id="back-to-email-list"
         onClick={onBack}
@@ -165,7 +165,7 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
       <h1 className="text-lg font-bold text-white tracking-wider">메일 정밀 스캔 결과</h1>
 
       {/* ── 메일 원문 카드 ── */}
-      <div className="bg-[#0B0C10] border border-white/5 rounded-xl p-5 space-y-4">
+      <div className="bg-[#0B0C10] border border-white/10 rounded-xl p-5 space-y-4">
         <div>
           <p className="text-[10px] text-slate-500 font-mono mb-0.5">발신자</p>
           <p className="text-xs font-bold text-[#FF2E63] font-mono">{email.from}</p>
@@ -176,7 +176,7 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
         </div>
         <div>
           <p className="text-[10px] text-slate-500 font-mono mb-1.5">본문</p>
-          <div className="bg-[#12141C]/80 border border-white/5 rounded-lg p-4">
+          <div className="bg-[#121318]/80 border border-white/10 rounded-lg p-4">
             <p className="text-xs text-slate-300 font-mono leading-relaxed whitespace-pre-line">
               {email.body}
             </p>
@@ -186,22 +186,12 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
 
       {/* ── AI 분석 결과 카드 ── */}
       <div
-        className={`rounded-xl border p-5 ${getRiskBg(email.riskScore)}`}
-        style={{
-          background:
-            email.riskScore >= 90
-              ? 'linear-gradient(135deg, rgba(255,46,99,0.15) 0%, rgba(255,46,99,0.05) 100%)'
-              : 'linear-gradient(135deg, rgba(249,115,22,0.15) 0%, rgba(249,115,22,0.05) 100%)',
-          boxShadow:
-            email.riskScore >= 90
-              ? '0 0 24px rgba(255,46,99,0.08)'
-              : '0 0 20px rgba(249,115,22,0.05)',
-        }}
+        className={`rounded-xl border p-5 ${getRiskBg(email.riskScore)} bg-[#181920]`}
       >
         <div className="flex items-center gap-2 mb-3">
           <span className="material-symbols-outlined text-xs text-white">psychology</span>
           <span className="text-[10px] font-bold text-white tracking-widest uppercase font-mono">
-            AI 보안 인텔리전스
+            AI 보안 분석 결과
           </span>
         </div>
 
@@ -211,12 +201,12 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
 
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[9px] font-mono text-slate-500">위협 스코어</span>
+            <span className="text-[9px] font-mono text-slate-500">위험 지수</span>
             <span className={`text-xs font-bold font-mono ${getRiskColor(email.riskScore)}`}>
               {email.riskScore} / 100
             </span>
           </div>
-          <div className="w-full h-2 bg-[#0B0C10] rounded-full overflow-hidden border border-white/5">
+          <div className="w-full h-2 bg-[#0B0C10] rounded-full overflow-hidden border border-white/10">
             <div
               className="h-full rounded-full transition-all duration-1000"
               style={{
@@ -225,23 +215,19 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
                   email.riskScore >= 90
                     ? 'linear-gradient(90deg, #FF2E63, #d61c4e)'
                     : 'linear-gradient(90deg, #f97316, #dc2626)',
-                boxShadow:
-                  email.riskScore >= 90
-                    ? '0 0 10px rgba(255,46,99,0.6)'
-                    : '0 0 8px rgba(249,115,22,0.5)',
               }}
             />
           </div>
         </div>
 
         {/* 🔗 탐지된 위협 URL 분석 결과 */}
-        <div className="mb-4 p-4 rounded-xl bg-[#0B0C10]/60 border border-[#FF2E63]/20 space-y-2">
+        <div className="mb-4 p-4 rounded-xl bg-[#0B0C10]/60 border border-white/10 space-y-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-[#FF2E63]">
             <span className="material-symbols-outlined text-xs">link</span>
-            <span>🔗 탐지된 위협 URL 분석 결과</span>
+            <span>🔗 메일 속 위험한 링크(URL) 검사</span>
           </div>
           <p className="text-[11px] text-slate-300 font-mono leading-relaxed">
-            메일 본문에 포함된 도메인 <span className="text-[#FF2E63] font-bold">[secure-auth-update.net]</span> 추적 결과, KISA 및 글로벌 보안 인텔리전스 기준 피싱 사기 사이트로 등록된 블랙리스트 주소임이 검증되었습니다.
+            메일 본문에 포함된 도메인 <span className="text-[#FF2E63] font-bold">[secure-auth-update.net]</span> 추적 결과, 피싱 사기 사이트로 등록된 위험 주소로 확인되었습니다.
           </p>
         </div>
 
@@ -266,9 +252,9 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
       <button
         id="block-threat-email-btn"
         onClick={onBlockClick}
-        className="w-full py-4 rounded-xl font-bold text-[#0B0C10] text-sm tracking-wider bg-[#FF2E63] hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200 shadow-[0_0_15px_rgba(255,46,99,0.3)]"
+        className="w-full py-4 rounded-xl font-bold text-[#0B0C10] text-sm tracking-wider bg-[#FF2E63] hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200"
       >
-        🔒 위협 메일 즉시 차단 및 영구 격리
+        🔒 위험 메일 차단하고 휴지통으로 보내기
       </button>
     </div>
   );
@@ -289,10 +275,10 @@ const EmailRow: React.FC<EmailRowProps> = ({ email, onAnalyze, isNew, isActive }
   <div
     className={`flex items-center justify-between p-6 rounded-2xl border transition-all duration-300 relative ${
       isActive
-        ? 'border-[#FF2E63] bg-[#161923] shadow-[0_0_20px_rgba(255,46,99,0.1)]'
+        ? 'border-white/20 bg-[#181920]'
         : isNew
-        ? 'border-[#FF2E63]/60 bg-[#12141C] shadow-[0_0_20px_rgba(255,46,99,0.12)]'
-        : 'border-white/5 bg-[#12141C] hover:border-[#FF2E63]/30'
+        ? 'border-white/10 bg-[#121318]'
+        : 'border-white/10 bg-[#121318] hover:border-white/20'
     }`}
     style={
       isNew
@@ -307,7 +293,7 @@ const EmailRow: React.FC<EmailRowProps> = ({ email, onAnalyze, isNew, isActive }
     {/* 메일 정보 */}
     <div className="flex-1 min-w-0 mr-4 pl-2">
       {email.platform === 'naver' && (
-        <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#00F5D4]/10 text-[#00F5D4] border border-[#00F5D4]/20 mb-1.5 font-mono shadow-[0_0_10px_rgba(0,245,212,0.1)]">
+        <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#00F5D4]/10 text-[#00F5D4] border border-[#00F5D4]/20 mb-1.5 font-mono">
           NAVER
         </span>
       )}
@@ -320,7 +306,7 @@ const EmailRow: React.FC<EmailRowProps> = ({ email, onAnalyze, isNew, isActive }
     <button
       id={`analyze-btn-${email.id}`}
       onClick={() => onAnalyze(email.id)}
-      className="shrink-0 px-4 py-2 rounded-xl font-bold text-xs text-[#0B0C10] bg-[#FF2E63] hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200 shadow-[0_2px_12px_rgba(255,46,99,0.25)]"
+      className="shrink-0 px-4 py-2 rounded-xl font-bold text-xs text-[#0B0C10] bg-[#FF2E63] hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200"
     >
       {isActive ? '분석 중' : '분석'}
     </button>
@@ -334,17 +320,16 @@ const EmailRow: React.FC<EmailRowProps> = ({ email, onAnalyze, isNew, isActive }
 interface PreLoginScreenProps {
   onGoogleLogin: () => void;
 }
-
 const PreLoginScreen: React.FC<PreLoginScreenProps> = ({ onGoogleLogin }) => (
   <div className="min-h-screen bg-[#0B0C10] text-white font-sans p-6 pb-28">
     {/* 상단 배지 */}
     <div className="flex items-center justify-center pt-2 pb-4">
-      <div className="flex items-center gap-2 bg-[#12141C] border border-[#FF2E63]/30 rounded-full px-4 py-1.5 shadow-[0_0_16px_rgba(255,46,99,0.1)]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E63] animate-pulse" />
+      <div className="flex items-center gap-2 bg-[#121318] border border-white/10 rounded-full px-4 py-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E63]" />
         <span className="text-[10px] font-mono font-bold tracking-widest text-[#FF2E63] uppercase">
-          LogBox Mail Security
+          LogBox 이메일 보안 가드
         </span>
-        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E63] animate-pulse" />
+        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E63]" />
       </div>
     </div>
 
@@ -356,9 +341,9 @@ const PreLoginScreen: React.FC<PreLoginScreenProps> = ({ onGoogleLogin }) => (
       </div>
 
       {/* 의심스러운 접근 경고 박스 */}
-      <div className="rounded-2xl border border-[#FF2E63]/50 p-6 bg-[#12141C] shadow-[0_0_24px_rgba(255,46,99,0.1)] animate-[alertPulse_2.5s_infinite_ease-in-out]">
+      <div className="rounded-2xl border border-white/10 p-6 bg-[#121318] shadow-lg">
         <div className="flex items-start gap-3">
-          <span className="material-symbols-outlined text-[#FF2E63] text-2xl animate-bounce">warning</span>
+          <span className="material-symbols-outlined text-[#FF2E63] text-2xl">warning</span>
           <div className="space-y-3">
             <p className="text-sm font-extrabold text-[#FF2E63]">의심스러운 외부 기기 감지!</p>
             <p className="text-xs text-slate-300 leading-relaxed">
@@ -366,7 +351,7 @@ const PreLoginScreen: React.FC<PreLoginScreenProps> = ({ onGoogleLogin }) => (
               구글 로그인 후 보안 메일을 스캔하여 안전 조치를 취하세요.
             </p>
             {/* 해커 기기 정보 */}
-            <div className="bg-[#0B0C10] rounded-xl p-4 border border-white/5">
+            <div className="bg-[#0B0C10] rounded-xl p-4 border border-white/10">
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-mono">
                 <span className="text-slate-500">기기</span>
                 <span className="text-[#FF2E63]/80 font-bold">{HACKER_DEVICE_INFO.model} · {HACKER_DEVICE_INFO.os}</span>
@@ -388,7 +373,7 @@ const PreLoginScreen: React.FC<PreLoginScreenProps> = ({ onGoogleLogin }) => (
       <button
         id="google-login-btn"
         onClick={onGoogleLogin}
-        className="w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-white text-sm bg-[#12141C] border border-white/5 shadow-md hover:border-[#FF2E63]/30 hover:shadow-[0_0_15px_rgba(255,46,99,0.1)] active:scale-95 transition-all duration-200"
+        className="w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-white text-sm bg-[#121318] border border-white/10 shadow-md hover:bg-[#181920] hover:border-white/20 active:scale-95 transition-all duration-200"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -408,7 +393,7 @@ const PreLoginScreen: React.FC<PreLoginScreenProps> = ({ onGoogleLogin }) => (
         ].map((f) => (
           <div
             key={f.label}
-            className="flex items-center gap-3 p-4 rounded-xl bg-[#12141C] border border-white/5 text-xs text-slate-400 font-mono"
+            className="flex items-center gap-3 p-4 rounded-xl bg-[#121318] border border-white/10 text-xs text-[#94A3B8] font-mono"
           >
             <span className="text-lg">{f.icon}</span>
             <span>{f.label}</span>
@@ -503,7 +488,7 @@ const SecurityPage: React.FC = () => {
       <GlobalStyles />
 
       {/* ── 상단 헤더 ── */}
-      <header className="flex justify-between items-center w-full pb-4 border-b border-white/5">
+      <header className="flex justify-between items-center w-full pb-4 border-b border-white/10">
         <div>
           <h1 className="text-xl font-extrabold tracking-wider text-white">이메일 보안 분석</h1>
           <p className="text-[10px] text-slate-500 font-mono mt-1">
@@ -521,10 +506,10 @@ const SecurityPage: React.FC = () => {
           disabled={isNaverConnected || isNaverLoading}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 ${
             isNaverConnected
-              ? 'bg-[#00F5D4] text-[#0B0C10] border-transparent shadow-[0_0_14px_rgba(0,245,212,0.4)] cursor-default'
+              ? 'bg-[#00F5D4] text-[#0B0C10] border-transparent cursor-default'
               : isNaverLoading
-              ? 'bg-[#12141C] border border-white/5 text-slate-500 cursor-wait'
-              : 'bg-[#FF2E63] text-white border-transparent shadow-[0_0_14px_rgba(255,46,99,0.3)] hover:shadow-[0_0_20px_rgba(255,46,99,0.5)] active:scale-95'
+              ? 'bg-[#121318] border border-white/10 text-slate-500 cursor-wait'
+              : 'bg-[#FF2E63] text-white border-transparent active:scale-95'
           }`}
         >
           {isNaverLoading ? (
@@ -565,12 +550,12 @@ const SecurityPage: React.FC = () => {
         />
       )}
 
-      {/* 🍞 글로벌 다크 네온 토스트 팝업 */}
+      {/* 🍞 글로벌 다크 토스트 팝업 */}
       {toastMessage && (
-        <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl border text-xs font-mono font-semibold tracking-wide flex items-center gap-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.6)] transition-all duration-300 animate-fade-in z-[60] ${
+        <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl border text-xs font-mono font-semibold tracking-wide flex items-center gap-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.4)] transition-all duration-300 animate-fade-in z-[60] ${
           toastType === 'success' 
-            ? 'bg-[#12141C] border-[#00F5D4]/30 text-[#00F5D4] shadow-[0_0_20px_rgba(0,245,212,0.15)]' 
-            : 'bg-[#12141C] border-[#FF2E63]/30 text-[#FF2E63] shadow-[0_0_20px_rgba(255,46,99,0.15)]'
+            ? 'bg-[#121318] border-emerald-500/30 text-emerald-400' 
+            : 'bg-[#121318] border-red-500/30 text-red-500'
         }`}>
           <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white/5 text-[10px]">
             {toastType === 'success' ? '✔' : '✕'}
@@ -596,17 +581,6 @@ const GlobalStyles: React.FC = () => (
       to {
         opacity: 1;
         transform: translateY(0) scale(1);
-      }
-    }
-
-    @keyframes alertPulse {
-      0%, 100% {
-        box-shadow: 0 0 16px rgba(255, 46, 99, 0.05);
-        border-color: rgba(255, 46, 99, 0.3);
-      }
-      50% {
-        box-shadow: 0 0 28px rgba(255, 46, 99, 0.2);
-        border-color: rgba(255, 46, 99, 0.6);
       }
     }
 

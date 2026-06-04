@@ -1,151 +1,386 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const slides = [
-  {
-    title: '로그와 와이파이 보안, 한눈에 감지',
-    description: 'LogBox는 1020 세대와 수험생을 위해 설계된 사이버 보안 대시보드입니다. 로그 흐름과 네트워크 상태를 트렌디하게 분석합니다.',
-    highlight: '로그 보안·와이파이 상태를 지금 바로 확인하세요.',
-  },
-  {
-    title: '2026년 보안 달력',
-    description: '개인정보와 활동 로그를 날짜별로 정리합니다. 위험일수, 주의일수를 한눈에 파악하고 빠르게 대응할 수 있어요.',
-    highlight: '이제 매일의 보안 상태를 시각적으로 관리하세요.',
-  },
-  {
-    title: '네이버 아이디로 시작하기',
-    description: '네이버 아이디로 간편하게 시작하고, 보안 알림과 로그 분석을 바로 경험해 보세요.',
-    highlight: '네이버 로그인 후 곧바로 메인 대시보드로 이동합니다.',
-  },
-];
-
 const OnboardingPage: React.FC = () => {
   const [activeStep, setActiveStep] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
 
-  const isLastStep = activeStep === slides.length - 1;
-
   const handleNext = () => {
-    if (isLastStep) return;
-    setActiveStep((prev) => prev + 1);
+    if (activeStep < 2) {
+      setActiveStep((prev) => prev + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (activeStep > 0) {
+      setActiveStep((prev) => prev - 1);
+    }
   };
 
   const handleStart = () => {
-    setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem('onboardingSeen', 'true');
-      setLoading(false);
-      navigate('/', { replace: true });
-    }, 1000);
+    localStorage.setItem('onboardingSeen', 'true');
+    navigate('/', { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#05070a] to-[#0a0c10] text-slate-100 px-4 py-8">
-      <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-3xl flex-col justify-center gap-8 rounded-[32px] border border-white/5 bg-white/5 p-6 shadow-[0_40px_120px_rgba(0,0,0,0.45)] backdrop-blur-xl sm:p-10">
-        <div className="space-y-4">
-          <span className="inline-flex rounded-full bg-[#0f172a]/80 px-4 py-1 text-xs uppercase tracking-[0.32em] text-slate-400">
-            Onboarding</span>
-          <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">LogBox와 함께하는 안전한 시작</h1>
-          <p className="max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-            로그, 와이파이, 그리고 개인정보를 세련된 네온 다크 인터페이스로 경험해 보세요. 첫 화면부터 1020 세대 감성에 맞춘 보안 구성이 자동으로 준비됩니다.
-          </p>
-        </div>
+    <div className="min-h-screen bg-[#0B0C10] text-slate-100 flex items-center justify-center py-8 px-4 overflow-y-auto font-sans">
+      {/* CSS styling for radar rotation */}
+      <style>{`
+        @keyframes radar-sweep {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-radar-sweep {
+          transform-origin: 50px 50px;
+          animation: radar-sweep 4s linear infinite;
+        }
+      `}</style>
 
-        <div className="grid gap-6 rounded-[28px] border border-slate-800/80 bg-slate-950/80 p-6 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.02)]">
-          <div className="flex items-center justify-between gap-4 rounded-3xl bg-[#11151f] p-5 shadow-[0_18px_80px_rgba(0,0,0,0.3)]">
-            <div>
-              <p className="text-sm uppercase tracking-[0.28em] text-[#8b95a6]">STEP {activeStep + 1}</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">{slides[activeStep].title}</h2>
-            </div>
-            <div className="rounded-3xl bg-[#112533] px-4 py-3 text-sm text-[#90f9b4] shadow-[0_0_30px_rgba(3,199,90,0.18)]">
-              {isLastStep ? '마지막 단계' : '다음 단계로 이동'}
+      {/* Phone container */}
+      <div className="w-full max-w-[390px] h-[820px] bg-[#121318] rounded-[48px] border-[10px] border-slate-950 relative flex flex-col overflow-hidden my-auto select-none border-white/5">
+        
+        {/* Dynamic Island / Notch */}
+        <div className="absolute top-2.5 left-1/2 -translate-x-1/2 w-28 h-6 bg-black rounded-full z-50 flex items-center justify-center" />
+
+        {/* Status Bar */}
+        <div className="h-11 px-6 pt-3 flex justify-between items-center text-[11px] text-slate-400 font-semibold z-40 relative">
+          <span>9:41</span>
+          <div className="flex items-center gap-1.5">
+            {/* Signal Strength Icon */}
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M2 22h20V2z" />
+            </svg>
+            {/* Wifi Icon */}
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M12 21l-12-18h24z" />
+            </svg>
+            {/* Battery Icon */}
+            <span className="text-[9px] font-bold">100%</span>
+            <div className="w-5 h-2.5 border border-slate-400 rounded-sm p-0.5 flex items-center">
+              <div className="w-full h-full bg-slate-400 rounded-[1px]" />
             </div>
           </div>
+        </div>
 
-          <div className="space-y-5 rounded-3xl border border-slate-800/80 bg-[#0b1118] p-6">
-            <p className="text-sm uppercase tracking-[0.3em] text-[#5fd692]">미리보기</p>
-            <p className="text-xl font-semibold text-white">{slides[activeStep].highlight}</p>
-            <p className="max-w-2xl text-slate-400 leading-7">{slides[activeStep].description}</p>
+        {/* LOGBOX Logo Header */}
+        <div className="z-10 mt-2 flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center w-7 h-7 rounded-lg border border-white/10 bg-white/5 text-white">
+            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+            </svg>
+          </div>
+          <span className="text-sm font-black tracking-widest font-mono text-white">
+            LOG<span className="text-rose-500">BOX</span>
+          </span>
+        </div>
 
+        {/* Content Body */}
+        <div className="flex-1 flex flex-col justify-between px-6 pb-8 pt-4 z-10 relative">
+          
+          {/* Graphics Section */}
+          <div className="flex-1 flex flex-col items-center justify-center min-h-[220px]">
             {activeStep === 0 && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl border border-[#154158] bg-[#071017]/80 p-4">
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500">로그 분석</p>
-                  <p className="mt-3 text-sm text-slate-300">실시간 접속 패턴과 위험 지표를 사이버틱하게 제공합니다.</p>
+              <div className="w-full flex flex-col items-center">
+                {/* Radar Graphic */}
+                <div className="relative w-40 h-40 flex items-center justify-center">
+                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
+                    <defs>
+                      <linearGradient id="radar-grad" x1="50" y1="50" x2="84.6" y2="30" gradientUnits="userSpaceOnUse">
+                        <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0" />
+                        <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.15" />
+                      </linearGradient>
+                    </defs>
+
+                    {/* Concentric rings */}
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#475569" strokeOpacity="0.25" strokeDasharray="3,3" />
+                    <circle cx="50" cy="50" r="30" fill="none" stroke="#475569" strokeOpacity="0.25" strokeDasharray="3,3" />
+                    <circle cx="50" cy="50" r="15" fill="none" stroke="#475569" strokeOpacity="0.25" strokeDasharray="3,3" />
+
+                    {/* Crosshairs */}
+                    <line x1="50" y1="5" x2="50" y2="95" stroke="#475569" strokeOpacity="0.2" strokeDasharray="2,2" />
+                    <line x1="5" y1="50" x2="95" y2="50" stroke="#475569" strokeOpacity="0.2" strokeDasharray="2,2" />
+
+                    {/* Sweeping Group */}
+                    <g className="animate-radar-sweep">
+                      <path d="M 50 50 L 50 10 A 40 40 0 0 1 84.6 30 Z" fill="url(#radar-grad)" />
+                      <line x1="50" y1="50" x2="84.6" y2="30" stroke="#FFFFFF" strokeWidth="0.75" opacity="0.3" />
+                    </g>
+
+                    {/* Center point */}
+                    <circle cx="50" cy="50" r="2" fill="#FFFFFF" opacity="0.8" />
+                    
+                    {/* Detected targets */}
+                    <circle cx="32" cy="45" r="2" fill="#94A3B8" />
+                    
+                    <g>
+                      <circle cx="68" cy="42" r="3" fill="#EF4444" />
+                    </g>
+                    
+                    <circle cx="60" cy="35" r="1.5" fill="#EF4444" opacity="0.6" />
+                    <circle cx="55" cy="68" r="1.5" fill="#94A3B8" opacity="0.5" />
+                  </svg>
                 </div>
-                <div className="rounded-3xl border border-[#154158] bg-[#071017]/80 p-4">
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-500">와이파이 시큐리티</p>
-                  <p className="mt-3 text-sm text-slate-300">공유기 및 공용망 접속 위험도를 AI처럼 보여줍니다.</p>
+
+                {/* Threat Notification Toast */}
+                <div className="flex items-center gap-3 w-full border border-white/5 bg-[#1c1d24] px-4 py-3.5 rounded-2xl shadow-lg mt-5">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 shrink-0">
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 2L1 21h22L12 2zm0 3.99L20.53 19H3.47L12 5.99zM13 16h-2v2h2v-2zm0-6h-2v4h2v-4z"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white tracking-tight">실시간 해킹 시도 차단 완료!</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5 truncate font-medium">192.168.1.xx → 해킹 위협 차단됨</p>
+                  </div>
+                  <span className="text-[10px] text-slate-500 whitespace-nowrap self-start font-medium">
+                    지금
+                  </span>
                 </div>
               </div>
             )}
 
             {activeStep === 1 && (
-              <div className="rounded-3xl bg-[#071217]/90 p-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.28em] text-slate-500">2026 보안 캘린더</p>
-                    <h3 className="mt-2 text-lg font-semibold text-white">데이터 하루 단위 공개</h3>
+              <div className="w-full px-1">
+                {/* Global Threat Map Graphic */}
+                <div className="relative w-full aspect-[16/10] border border-white/10 bg-[#1c1d24] rounded-2xl p-4 font-mono">
+                  {/* Map Header */}
+                  <div className="flex items-center justify-between text-[8px] text-slate-400 mb-2 font-bold">
+                    <span className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
+                      실시간 해킹 지도
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-0.5 bg-red-500 inline-block" /> 해킹 시도
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-slate-400 rounded-full inline-block" /> 접속 지점
+                      </span>
+                    </span>
                   </div>
-                  <div className="rounded-full border border-[#19f88f]/30 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-[#7bf7b2]">
-                    Sneak Peek</div>
-                </div>
-                <div className="mt-5 grid grid-cols-7 gap-2 text-center text-[11px] text-slate-400">
-                  {['일','월','화','수','목','금','토'].map((weekday) => (
-                    <div key={weekday} className="font-semibold">{weekday}</div>
-                  ))}
-                </div>
-                <div className="mt-4 grid grid-cols-7 gap-2 text-[12px] text-slate-100">
-                  {Array.from({ length: 28 }, (_, index) => (
-                    <div key={index} className="rounded-2xl bg-[#101820] p-3">
-                      <div className="text-sm font-semibold">{index + 1}</div>
-                      <div className="mt-2 h-1 rounded-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500" />
+                  
+                  {/* Nodes & Lines Map */}
+                  <div className="relative h-[80px] w-full">
+                    <svg className="w-full h-full" viewBox="0 0 100 50">
+                      {/* Connection lines */}
+                      <line x1="20" y1="20" x2="45" y2="18" stroke="#EF4444" strokeWidth="0.5" strokeOpacity="0.6" />
+                      <line x1="45" y1="18" x2="55" y2="20" stroke="#EF4444" strokeWidth="0.5" strokeOpacity="0.6" />
+                      <line x1="55" y1="20" x2="70" y2="22" stroke="#EF4444" strokeWidth="0.5" strokeOpacity="0.6" />
+                      <line x1="70" y1="22" x2="80" y2="18" stroke="#EF4444" strokeWidth="0.5" strokeOpacity="0.6" />
+                      
+                      <line x1="20" y1="38" x2="48" y2="40" stroke="#EF4444" strokeWidth="0.5" strokeDasharray="1,1" strokeOpacity="0.3" />
+                      <line x1="48" y1="40" x2="72" y2="28" stroke="#EF4444" strokeWidth="0.5" strokeOpacity="0.6" />
+                      <line x1="72" y1="28" x2="82" y2="38" stroke="#EF4444" strokeWidth="0.5" strokeDasharray="1,1" strokeOpacity="0.3" />
+                      
+                      {/* Nodes */}
+                      <circle cx="20" cy="20" r="1.5" fill="#94A3B8" />
+                      <text x="20" y="14" fill="#94A3B8" fontSize="3.5" textAnchor="middle" fontWeight="bold">UTC</text>
+                      
+                      <circle cx="45" cy="18" r="1.5" fill="#94A3B8" />
+                      <text x="45" y="12" fill="#94A3B8" fontSize="3.5" textAnchor="middle" fontWeight="bold">LON</text>
+
+                      <circle cx="55" cy="20" r="1.5" fill="#94A3B8" />
+                      <text x="55" y="14" fill="#94A3B8" fontSize="3.5" textAnchor="middle" fontWeight="bold">BER</text>
+                      
+                      <circle cx="70" cy="22" r="1.5" fill="#EF4444" />
+                      <text x="70" y="16" fill="#EF4444" fontSize="3.5" textAnchor="middle" fontWeight="bold">MSC</text>
+                      
+                      <circle cx="80" cy="18" r="1.5" fill="#EF4444" />
+                      <text x="80" y="12" fill="#EF4444" fontSize="3.5" textAnchor="middle" fontWeight="bold">HKG</text>
+                      
+                      <circle cx="20" cy="38" r="1.5" fill="#94A3B8" />
+                      <text x="20" y="32" fill="#94A3B8" fontSize="3.5" textAnchor="middle" fontWeight="bold">SGP</text>
+                      
+                      <circle cx="48" cy="40" r="1.5" fill="#94A3B8" />
+                      <text x="48" y="34" fill="#94A3B8" fontSize="3.5" textAnchor="middle" fontWeight="bold">SYD</text>
+
+                      <circle cx="72" cy="28" r="1.5" fill="#94A3B8" />
+                      <text x="72" y="22" fill="#94A3B8" fontSize="3.5" textAnchor="middle" fontWeight="bold">NYC</text>
+
+                      <circle cx="82" cy="38" r="1.5" fill="#94A3B8" />
+                      <text x="82" y="32" fill="#94A3B8" fontSize="3.5" textAnchor="middle" fontWeight="bold">LAX</text>
+                    </svg>
+                  </div>
+                  
+                  {/* Map Stats */}
+                  <div className="grid grid-cols-3 border-t border-white/5 pt-2.5 text-center mt-2">
+                    <div>
+                      <div className="text-slate-200 font-bold text-xs tracking-tight">23</div>
+                      <div className="text-slate-500 text-[8px] mt-0.5 font-bold">위험 요소</div>
                     </div>
-                  ))}
+                    <div>
+                      <div className="text-red-500 font-bold text-xs tracking-tight">3</div>
+                      <div className="text-slate-500 text-[8px] mt-0.5 font-bold">해킹 시도 중</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-200 font-bold text-xs tracking-tight">99.8%</div>
+                      <div className="text-slate-500 text-[8px] mt-0.5 font-bold">방어율</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {activeStep === 2 && (
-              <div className="rounded-3xl bg-[#071217]/90 p-5 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]">
-                <p className="text-sm uppercase tracking-[0.28em] text-slate-500">간편 시작</p>
-                <div className="mt-4 rounded-3xl border border-[#03C75A]/25 bg-[#09120f] p-5">
-                  <p className="text-lg font-semibold text-white">네이버 아이디로 빠르게 시작</p>
-                  <p className="mt-2 text-sm text-slate-400">한 번의 로그인으로 보안 대시보드에 바로 접속합니다.</p>
+              <div className="w-full flex flex-col items-center">
+                {/* Shield Graphic */}
+                <div className="relative w-28 h-28 flex items-center justify-center">
+                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" fill="none">
+                    <path d="M50 12 L82 25 V50 C82 72 68 87 50 92 C32 87 18 72 18 50 V25 L50 12 Z" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M50 20 L76 30 V50 C76 68 64 81 50 85 C36 81 24 68 24 50 V30 L50 20 Z" stroke="#EF4444" strokeWidth="1" strokeDasharray="3,3" opacity="0.6" />
+                  </svg>
+                  <div className="z-10 text-slate-300">
+                    <svg className="w-9 h-9 fill-current" viewBox="0 0 24 24">
+                      <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Status Pills */}
+                <div className="flex flex-col items-center gap-2 mt-5 w-full">
+                  <div className="flex justify-center gap-2">
+                    <span className="px-3 py-1 rounded-full border border-white/5 bg-[#1c1d24] text-[10px] font-bold text-slate-300 tracking-tight">
+                      사기 메일 링크 차단됨
+                    </span>
+                    <span className="px-3 py-1 rounded-full border border-white/5 bg-[#1c1d24] text-[10px] font-bold text-slate-300 tracking-tight">
+                      위험한 와이파이 차단됨
+                    </span>
+                  </div>
+                  <span className="px-3 py-1 rounded-full border border-white/5 bg-[#1c1d24] text-[10px] font-bold text-slate-300 tracking-tight">
+                    바이러스 첨부파일 차단됨
+                  </span>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              {slides.map((_, index) => (
-                <span
-                  key={index}
-                  className={`h-2 w-10 rounded-full transition ${index === activeStep ? 'bg-[#03C75A]' : 'bg-slate-700'}`}
-                />
-              ))}
-            </div>
-            {!isLastStep ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                className="inline-flex items-center justify-center rounded-full bg-[#03C75A] px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-[#02b652]"
-              >
-                다음
-              </button>
-            ) : (
+          {/* Text and Description Section */}
+          <div className="mt-4 flex flex-col items-start text-left w-full">
+            {activeStep === 0 && (
+              <>
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[9px] font-bold text-slate-400 tracking-wider mb-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  실시간 해킹 감시
+                </span>
+                <h2 className="text-[25px] font-black tracking-tight text-white leading-tight mb-3">
+                  실시간 해커 침입<br />
+                  <span className="text-red-500">즉시 포착</span>
+                </h2>
+                <p className="text-[12px] text-slate-400 leading-relaxed font-semibold">
+                  대시보드를 켜두는 것만으로도 내 계정을 노리는 글로벌 위협 세력의 접근을 실시간 토스트 알림으로 가장 먼저 알려줍니다.
+                </p>
+              </>
+            )}
+
+            {activeStep === 1 && (
+              <>
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[9px] font-bold text-slate-400 tracking-wider mb-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  해커 접속 추적
+                </span>
+                <h2 className="text-[25px] font-black tracking-tight text-white leading-tight mb-3">
+                  글로벌 공격 거점<br />
+                  <span className="text-slate-200">정밀 추적</span>
+                </h2>
+                <p className="text-[12px] text-slate-400 leading-relaxed font-semibold">
+                  해외에서 내 도메인으로 우회 접속하는 해커의 진짜 위치를 풀스크린 세계 지도 위에서 시각적으로 완벽히 추적합니다.
+                </p>
+              </>
+            )}
+
+            {activeStep === 2 && (
+              <>
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[9px] font-bold text-slate-400 tracking-wider mb-3">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  위험 메일 차단 및 격리
+                </span>
+                <h2 className="text-[25px] font-black tracking-tight text-white leading-tight mb-3">
+                  악성 링크 차단 및<br />
+                  <span className="text-red-500">안전 격리</span>
+                </h2>
+                <p className="text-[12px] text-slate-400 leading-relaxed font-semibold">
+                  장학금이나 등급컷 안내로 위장한 교묘한 피싱 메일과 가짜 와이파이를 정밀 분석하고, 클릭 한 번으로 위험 요소를 영구 격리하세요.
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Action Button & Route Handling for Slide 3 */}
+          {activeStep === 2 && (
+            <div className="w-full mt-4 flex flex-col items-center">
               <button
                 type="button"
                 onClick={handleStart}
-                disabled={loading}
-                className="inline-flex items-center justify-center rounded-full bg-[#03C75A] px-6 py-3 text-sm font-semibold text-slate-950 transition hover:bg-[#02b652] disabled:cursor-not-allowed disabled:opacity-70"
+                className="w-full py-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-[13px] tracking-wide shadow-[0_0_20px_rgba(225,29,72,0.25)] transition duration-200 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {loading ? '로그인 중...' : '네이버 아이디로 시작하기'}
+                🔒 보안 대시보드 입장하기
+              </button>
+              <button
+                type="button"
+                onClick={handleStart}
+                className="text-slate-500 hover:text-slate-400 text-xs font-bold mt-3.5 cursor-pointer bg-transparent border-none transition"
+              >
+                건너뛰기
+              </button>
+            </div>
+          )}
+
+          {/* Indicator Dot Status */}
+          <div className="flex justify-center items-center gap-2 mt-4">
+            {[0, 1, 2].map((idx) => (
+              <span
+                key={idx}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  idx === activeStep 
+                    ? 'w-5 bg-rose-600' 
+                    : 'w-1.5 bg-[#2a2d37]'
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Navigation Buttons at the Bottom */}
+          <div className="mt-4 flex w-full justify-between items-center z-10 relative">
+            {activeStep === 0 && (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="w-full border border-white/10 text-slate-200 hover:bg-white/5 rounded-2xl py-3 font-bold text-xs transition duration-200 cursor-pointer text-center"
+              >
+                다음 →
+              </button>
+            )}
+
+            {activeStep === 1 && (
+              <div className="flex w-full justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  className="w-[40%] border border-white/5 bg-transparent text-slate-400 rounded-2xl py-3 font-bold text-xs hover:bg-white/5 transition duration-200 cursor-pointer text-center"
+                >
+                  이전
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="w-[57%] border border-white/10 text-slate-200 hover:bg-white/5 rounded-2xl py-3 font-bold text-xs transition duration-200 cursor-pointer text-center"
+                >
+                  다음 →
+                </button>
+              </div>
+            )}
+
+            {activeStep === 2 && (
+              <button
+                type="button"
+                onClick={handlePrev}
+                className="w-full border border-white/5 bg-transparent text-slate-400 rounded-2xl py-3 font-bold text-xs hover:bg-white/5 transition duration-200 cursor-pointer text-center"
+              >
+                이전
               </button>
             )}
           </div>
+          
         </div>
       </div>
     </div>

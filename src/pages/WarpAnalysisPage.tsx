@@ -56,25 +56,25 @@ const ActionModal: React.FC<ActionModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-[#12141C] border border-[#FF2E63]/30 rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-100 transition-all duration-300">
+      <div className="bg-[#121318] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-xl transform scale-100 transition-all duration-300">
         
         {/* 1. 비밀번호 변경 모달 */}
         {activeModal === 'password' && (
           <div className="space-y-4">
             <div className="flex items-center space-x-2 text-[#FF2E63]">
               <span className="material-symbols-outlined text-lg">warning</span>
-              <h3 className="text-sm font-semibold tracking-wider">원격 보안 비밀번호 재설정</h3>
+              <h3 className="text-sm font-semibold tracking-wider">위험 기기 비밀번호 바꾸기</h3>
             </div>
-            <p className="text-xs text-slate-400">해당 엔드포인트 세션 위험 감지로 인해 즉시 변경이 권장됩니다.</p>
+            <p className="text-xs text-slate-400">해당 기기에서 위험 접속이 감지되어 비밀번호를 바꾸는 것이 좋아요.</p>
             <input 
               type="password" 
               placeholder="새 비밀번호 입력" 
-              className="w-full bg-[#0B0C10] border border-white/5 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF2E63] font-mono transition-colors"
+              className="w-full bg-[#0B0C10] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF2E63] font-mono transition-colors"
             />
             <div className="flex space-x-2 pt-2">
               <button
                 onClick={onClose}
-                className="flex-1 bg-[#161923] border border-white/5 text-slate-300 py-2.5 rounded-xl text-xs hover:bg-[#1C202E] active:scale-95 transition-all"
+                className="flex-1 bg-[#181920] border border-white/10 text-slate-300 py-2.5 rounded-xl text-xs hover:bg-[#202128] active:scale-95 transition-all"
               >
                 취소
               </button>
@@ -83,11 +83,11 @@ const ActionModal: React.FC<ActionModalProps> = ({
                 disabled={passwordStatus === 'loading'}
                 className="flex-1 bg-[#FF2E63] text-[#0B0C10] py-2.5 rounded-xl text-xs font-bold hover:bg-[#ff4d7c] active:scale-95 transition-all disabled:opacity-50"
               >
-                {passwordStatus === 'loading' ? '변경 중...' : '보안 변경 적용'}
+                {passwordStatus === 'loading' ? '변경 중...' : '비밀번호 변경 적용'}
               </button>
             </div>
             {passwordStatus === 'success' && (
-              <p className="text-center text-xs text-[#00F5D4] font-mono animate-pulse">성공적으로 변경되었습니다.</p>
+              <p className="text-center text-xs text-emerald-400 font-mono animate-pulse">성공적으로 변경되었습니다.</p>
             )}
           </div>
         )}
@@ -95,34 +95,34 @@ const ActionModal: React.FC<ActionModalProps> = ({
         {/* 2. 원격 로그아웃 모달 */}
         {activeModal === 'logout' && (
           <div className="space-y-4">
-            <div className="flex items-center space-x-2 text-[#00F5D4]">
+            <div className="flex items-center space-x-2 text-[#FF2E63]">
               <span className="material-symbols-outlined text-lg animate-pulse">emergency</span>
-              <h3 className="text-sm font-semibold tracking-wider">원격 세션 즉시 차단 중...</h3>
+              <h3 className="text-sm font-semibold tracking-wider">기기 접속 즉시 끊는 중...</h3>
             </div>
-            <p className="text-xs text-slate-400">원격 엔드포인트(확인되지 않은 경로) 세션 강제 종료 수행 중...</p>
+            <p className="text-xs text-slate-400">의심스러운 접속 즉시 종료 중...</p>
             
             {/* 실시간 네트워크 차단율 게이지 프로그레스 바 */}
-            <div className="w-full bg-[#0B0C10] h-2.5 rounded-full overflow-hidden border border-white/5">
+            <div className="w-full bg-[#0B0C10] h-2.5 rounded-full overflow-hidden border border-white/10">
               <div 
-                className="bg-gradient-to-r from-[#00F5D4] to-blue-500 h-full transition-all duration-300 ease-out"
+                className="bg-rose-500 h-full transition-all duration-300 ease-out"
                 style={{ width: `${logoutProgress}%` }}
               />
             </div>
 
             {logoutCompleted ? (
               <div className="space-y-3 pt-2">
-                <p className="text-center text-xs text-[#00F5D4] font-mono">
+                <p className="text-center text-xs text-emerald-400 font-mono">
                   ✔ 해당 기기의 접근 권한이 영구 차단되었습니다.
                 </p>
                 <button 
                   onClick={onClose}
-                  className="w-full bg-[#00F5D4]/10 border border-[#00F5D4]/30 text-[#00F5D4] py-2.5 rounded-xl text-xs font-bold hover:bg-[#00F5D4]/20 active:scale-95 transition-all"
+                  className="w-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 py-2.5 rounded-xl text-xs font-bold hover:bg-emerald-500/20 active:scale-95 transition-all"
                 >
                   확인 및 닫기
                 </button>
               </div>
             ) : (
-              <p className="text-right text-[10px] text-slate-500 font-mono">네트워크 차단율: {logoutProgress}%</p>
+              <p className="text-right text-[10px] text-slate-500 font-mono">해커 접속 차단 진행도: {logoutProgress}%</p>
             )}
           </div>
         )}
@@ -234,17 +234,17 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
   if (!incoming) {
     return (
       <div className="min-h-screen bg-[#0B0C10] text-white flex flex-col items-center justify-center p-6 font-sans select-none">
-        <div className="bg-[#12141C] border border-[#FF2E63]/30 rounded-2xl p-8 max-w-sm w-full text-center shadow-[0_24px_80px_rgba(0,0,0,0.5)] animate-fade-in">
-          <div className="w-16 h-16 bg-[#FF2E63]/10 border border-[#FF2E63]/30 rounded-full flex items-center justify-center mx-auto mb-5 shadow-[0_0_15px_rgba(255,46,99,0.15)]">
+        <div className="bg-[#121318] border border-white/10 rounded-2xl p-8 max-w-sm w-full text-center shadow-xl animate-fade-in">
+          <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mx-auto mb-5">
             <span className="text-[#FF2E63] text-3xl">⚠️</span>
           </div>
-          <h2 className="text-sm font-bold text-slate-200 mb-2">유효하지 않은 보안 세션</h2>
-          <p className="text-[11px] text-slate-400 leading-relaxed mb-6">
-            유효하지 않은 보안 세션입니다.<br />메인 화면으로 이동합니다.
+          <h2 className="text-sm font-bold text-slate-200 mb-2">로그인이 만료되었습니다.</h2>
+          <p className="text-[11px] text-[#94A3B8] leading-relaxed mb-6">
+            로그인 정보가 만료되었습니다.<br />메인 화면으로 이동합니다.
           </p>
           <button 
             onClick={() => navigate('/')} 
-            className="w-full bg-[#161923] border border-white/5 text-slate-200 hover:text-white py-3 rounded-2xl text-xs font-semibold hover:bg-[#1C202E] active:scale-95 transition-all"
+            className="w-full bg-[#181920] border border-white/10 text-slate-200 hover:text-white py-3 rounded-2xl text-xs font-semibold hover:bg-[#202128] active:scale-95 transition-all"
           >
             메인으로 이동
           </button>
@@ -368,17 +368,10 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
         .animate-laser {
           animation: path-glow 3s linear infinite;
         }
-        @keyframes map-pulse {
-          0%, 100% { opacity: 0.15; }
-          50% { opacity: 0.3; }
-        }
-        .animate-map-glow {
-          animation: map-pulse 4s ease-in-out infinite;
-        }
       `}</style>
 
       {/* Back button */}
-      <header className="flex justify-between items-center w-full pb-4 border-b border-white/5">
+      <header className="flex justify-between items-center w-full pb-4 border-b border-white/10">
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-1.5 text-slate-400 text-xs hover:text-white transition-colors"
@@ -386,103 +379,92 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
           <span className="material-symbols-outlined text-sm">arrow_back_ios</span>
           뒤로가기
         </button>
-        <span className="text-xs font-bold tracking-wider text-[#FF2E63]">Threat Intelligence Portal</span>
+        <span className="text-xs font-bold tracking-wider text-[#FF2E63]">실시간 위협 분석 센터</span>
       </header>
 
       {/* 세계 지도 UI 풀스크린(Full-width) 패널 */}
       <div className="w-full flex flex-col gap-6">
-        <div className="relative bg-[#12141C] border border-white/5 rounded-2xl p-6 flex flex-col justify-between overflow-hidden min-h-[400px] lg:min-h-[550px] shadow-2xl">
+        <div className="relative bg-[#121318] border border-white/10 rounded-2xl p-6 flex flex-col justify-between overflow-hidden min-h-[400px] lg:min-h-[550px] shadow-xl">
           
           {/* 상단 메타 헤더 */}
           <div className="flex justify-between items-start z-10">
             <div>
-              <span className="text-[10px] font-mono tracking-widest text-[#FF2E63] uppercase">Global Threat Tracking Map</span>
-              <h3 className="text-base font-bold mt-1 tracking-wide">실시간 공격 세션 위협 경로</h3>
+              <span className="text-[10px] font-mono tracking-widest text-[#FF2E63] uppercase">글로벌 해킹 위치 추적 지도</span>
+              <h3 className="text-base font-bold mt-1 tracking-wide">실시간 해커 접속 경로</h3>
             </div>
-            <div className="flex items-center gap-2 bg-[#0B0C10] border border-white/5 px-3 py-1.5 rounded-lg text-[10px] font-mono text-[#00F5D4]">
-              <span className="w-1.5 h-1.5 bg-[#00F5D4] rounded-full animate-ping" />
-              GPS LINKED
+            <div className="flex items-center gap-2 bg-[#0B0C10] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-mono text-emerald-400">
+              <span className="w-1.5 h-1.5 bg-[#00F5D4] rounded-full" />
+              실시간 위치 연동
             </div>
           </div>
 
-          {/* 다크 사이버펑크 2D 세계 지도 SVG 영역 (웅장하게 확장된 스케일) */}
+          {/* 다크 2D 세계 지도 SVG 영역 */}
           <div className="relative flex-1 flex items-center justify-center my-6">
             <svg 
               viewBox="0 0 800 360" 
-              className="w-full h-full max-h-[480px] drop-shadow-[0_0_24px_rgba(0,0,0,0.9)]"
+              className="w-full h-full max-h-[480px]"
               xmlns="http://www.w3.org/2000/svg"
             >
-              {/* 1. 하이테크 모눈 격자 배경 */}
-              <defs>
-                <pattern id="map-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(0, 245, 212, 0.04)" strokeWidth="0.75" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#map-grid)" className="rounded-xl" />
-
-              {/* 2. 추상화된 대륙 패스들 (네온 블루 테마의 프리미엄 사이버펑크 무드) */}
-              <g className="opacity-45 animate-map-glow">
+              {/* 2. 추상화된 대륙 패스들 */}
+              <g className="opacity-45">
                 {/* 북미/남미 대륙 */}
                 <path 
                   d="M 60 70 L 140 70 L 165 110 L 130 150 L 140 190 L 180 230 L 165 310 L 145 340 L 130 300 L 105 240 L 95 210 L 50 160 L 40 110 Z" 
-                  fill="rgba(0, 245, 212, 0.08)" 
-                  stroke="rgba(0, 245, 212, 0.2)" 
+                  fill="rgba(255, 255, 255, 0.03)" 
+                  stroke="rgba(255, 255, 255, 0.1)" 
                   strokeWidth="1.2" 
                 />
                 {/* 유라시아 대륙 */}
                 <path 
                   d="M 280 60 L 420 50 L 610 60 L 685 90 L 710 130 L 695 190 L 650 200 L 620 160 L 550 210 L 490 230 L 450 180 L 400 160 L 320 180 L 290 130 L 260 110 Z" 
-                  fill="rgba(0, 245, 212, 0.08)" 
-                  stroke="rgba(0, 245, 212, 0.2)" 
+                  fill="rgba(255, 255, 255, 0.03)" 
+                  stroke="rgba(255, 255, 255, 0.1)" 
                   strokeWidth="1.2" 
                 />
                 {/* 아프리카 대륙 */}
                 <path 
                   d="M 310 180 L 390 180 L 420 200 L 430 240 L 400 300 L 365 320 L 345 280 L 330 240 L 300 220 Z" 
-                  fill="rgba(0, 245, 212, 0.08)" 
-                  stroke="rgba(0, 245, 212, 0.2)" 
+                  fill="rgba(255, 255, 255, 0.03)" 
+                  stroke="rgba(255, 255, 255, 0.1)" 
                   strokeWidth="1.2" 
                 />
                 {/* 호주 대륙 */}
                 <path 
                   d="M 640 260 L 690 270 L 710 300 L 675 320 L 630 300 Z" 
-                  fill="rgba(0, 245, 212, 0.08)" 
-                  stroke="rgba(0, 245, 212, 0.2)" 
+                  fill="rgba(255, 255, 255, 0.03)" 
+                  stroke="rgba(255, 255, 255, 0.1)" 
                   strokeWidth="1.2" 
                 />
               </g>
 
-              {/* 3. 공격 추적 네온 레이저 경로 (Bezier Curve) */}
+              {/* 3. 공격 추적 레이저 경로 (Bezier Curve) */}
               <path 
                 d={pathD} 
                 fill="none" 
                 stroke="#FF2E63" 
-                strokeWidth="2" 
-                strokeOpacity="0.3" 
+                strokeWidth="1.5" 
+                strokeOpacity="0.4" 
               />
               
-              {/* 실시간 흐르는 네온 광선 선 (Dash-array 애니메이션) */}
+              {/* 실시간 흐르는 레이저 광선 선 */}
               <path 
                 d={pathD} 
                 fill="none" 
                 stroke="#FF2E63" 
-                strokeWidth="4" 
+                strokeWidth="2.5" 
                 strokeLinecap="round" 
                 strokeDasharray="40 160" 
                 className="animate-laser" 
-                style={{ filter: 'drop-shadow(0 0 8px #FF2E63)' }}
               />
 
               {/* 4. 출발지 노드 (공격지: Origin) */}
               <g transform={`translate(${originCoords[0]}, ${originCoords[1]})`}>
-                <circle r="16" fill="none" stroke="#FF2E63" strokeWidth="1" className="animate-ping" strokeOpacity="0.6" />
-                <circle r="6.5" fill="#FF2E63" style={{ filter: 'drop-shadow(0 0 6px #FF2E63)' }} />
+                <circle r="4.5" fill="#FF2E63" />
                 <text 
                   y="-16" 
                   textAnchor="middle" 
                   fill="#FF2E63" 
                   className="text-[10px] font-mono font-bold"
-                  style={{ textShadow: '0 0 5px rgba(255, 46, 99, 0.8)' }}
                 >
                   {route.origin.toUpperCase()} (공격 근원)
                 </text>
@@ -490,14 +472,12 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
 
               {/* 5. 목적지 노드 (대상지: Target) */}
               <g transform={`translate(${destCoords[0]}, ${destCoords[1]})`}>
-                <circle r="18" fill="none" stroke="#00F5D4" strokeWidth="1.2" className="animate-ping" strokeOpacity="0.7" />
-                <circle r="6.5" fill="#00F5D4" style={{ filter: 'drop-shadow(0 0 6px #00F5D4)' }} />
+                <circle r="4.5" fill="#00F5D4" />
                 <text 
                   y="-16" 
                   textAnchor="middle" 
                   fill="#00F5D4" 
                   className="text-[10px] font-mono font-bold"
-                  style={{ textShadow: '0 0 5px rgba(0, 245, 212, 0.8)' }}
                 >
                   {route.destination.toUpperCase()} (경유 거점)
                 </text>
@@ -506,7 +486,7 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
           </div>
 
           {/* 하단 지리 좌표계 스탯 레이블 */}
-          <div className="flex justify-between items-center bg-[#0B0C10]/60 backdrop-blur-sm border border-white/5 rounded-xl p-3.5 z-10 text-[10px] font-mono text-slate-400">
+          <div className="flex justify-between items-center bg-[#0B0C10]/60 backdrop-blur-sm border border-white/10 rounded-xl p-3.5 z-10 text-[10px] font-mono text-slate-400">
             <div className="flex items-center gap-4">
               <div>
                 <span className="text-[#FF2E63] font-semibold">ORIGIN:</span> LAT {originCoords[1]}, LNG {originCoords[0]}
@@ -516,7 +496,7 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
               </div>
             </div>
             <div className="text-right">
-              PATH STATE: <span className="text-[#FF2E63] font-bold animate-pulse">ACTIVE THREAT DETECTED</span>
+              상태: <span className="text-[#FF2E63] font-bold">의심스러운 기기 발견</span>
             </div>
           </div>
 
@@ -529,30 +509,30 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
         {/* 왼쪽 패널: 상세 정보 카드 */}
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <InfoCell label="보안 엔드포인트" value={routeLabel} sub="원격 접근 경로 분석" />
-            <InfoCell label="발생 시각" value={displayTime} sub="시간 역행 무결성 확인" />
+            <InfoCell label="접속한 서비스" value={routeLabel} sub="해외 접속 경로 분석" />
+            <InfoCell label="발생 시각" value={displayTime} sub="로그 위조 여부 검증 완료" />
             <InfoCell label="기기 명칭" value={incoming.device?.name ?? '확인되지 않음'} sub={`ID: ${incoming.device?.id ?? 'N/A'}`} />
-            <InfoCell label="접속 IP 주소" value={incoming.ip ?? '확인되지 않음'} sub="패킷 위조 방지 활성" />
+            <InfoCell label="접속 IP 주소" value={incoming.ip ?? '확인되지 않음'} sub="접속 정보 조작 방지 작동 중" />
           </div>
 
-          <div className="bg-[#12141C] border border-white/5 rounded-2xl p-4.5 space-y-2">
-            <h4 className="text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">보안 분석 세션 현황</h4>
-            <div className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-[#0B0C10] border border-white/5">
-              <span className="text-slate-400 font-mono">침입 차단 시스템(IPS)</span>
-              <span className="text-[#00F5D4] font-mono font-bold">STANDBY</span>
+          <div className="bg-[#121318] border border-white/10 rounded-2xl p-4.5 space-y-2">
+            <h4 className="text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">보안 실시간 검사 현황</h4>
+            <div className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-[#0B0C10] border border-white/10">
+              <span className="text-slate-400 font-mono">해킹 차단 시스템 작동</span>
+              <span className="text-[#00F5D4] font-mono font-bold">대기 중</span>
             </div>
-            <div className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-[#0B0C10] border border-white/5">
-              <span className="text-slate-400 font-mono">워프 추적 무결성</span>
-              <span className="text-[#FF2E63] font-mono font-bold animate-pulse">WARNING (ANOMALY)</span>
+            <div className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-[#0B0C10] border border-white/10">
+              <span className="text-slate-400 font-mono">위치 분석 경고</span>
+              <span className="text-[#FF2E63] font-mono font-bold">이상 접속 감지</span>
             </div>
           </div>
         </div>
 
         {/* 오른쪽 패널: 보안 제어 버튼 카드 */}
-        <div className="bg-[#12141C] border border-white/5 rounded-2xl p-5 flex flex-col justify-between gap-4">
+        <div className="bg-[#121318] border border-white/10 rounded-2xl p-5 flex flex-col justify-between gap-4">
           <div>
-            <h4 className="text-xs font-bold tracking-wide text-white mb-1">보안 위협 제어 소스</h4>
-            <p className="text-[11px] text-slate-400">감지된 비정상 로그인 경로에 대해 아래 원격 제어 옵션을 즉시 실행할 수 있습니다.</p>
+            <h4 className="text-xs font-bold tracking-wide text-white mb-1">위협 대응 조치</h4>
+            <p className="text-[11px] text-slate-400">감지된 의심스러운 접속 경로에 대해 아래 원격 대처 기능을 즉시 실행할 수 있습니다.</p>
           </div>
 
           <div className="space-y-3">
@@ -562,7 +542,7 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
               className={`w-full text-[#0B0C10] py-4 rounded-xl font-bold text-xs tracking-wider flex items-center justify-center gap-2 transition-all duration-200 active:scale-95 disabled:opacity-60 ${
                 isBlocking
                   ? 'bg-red-700/70 cursor-not-allowed text-white'
-                  : 'bg-[#FF2E63] hover:bg-[#ff4d7c] hover:shadow-[0_0_20px_rgba(255,46,99,0.4)] shadow-[0_0_10px_rgba(255,46,99,0.2)]'
+                  : 'bg-[#FF2E63] hover:bg-[#ff4d7c]'
               }`}
             >
               {isBlocking ? (
@@ -571,22 +551,22 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
                   차단 요청 중...
                 </>
               ) : (
-                '⛔ BLOCK ACCESS (접근 차단)'
+                '⛔ 기기 즉시 차단하기'
               )}
             </button>
             
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setActiveModal('password')}
-                className="bg-[#161923] border border-white/5 text-slate-300 py-3 rounded-xl text-xs font-semibold hover:bg-[#1C202E] hover:border-[#FF2E63]/30 hover:text-white active:scale-95 transition-all duration-200"
+                className="bg-[#181920] border border-white/10 text-[#94A3B8] py-3 rounded-xl text-xs font-semibold hover:bg-[#202128] hover:text-white active:scale-95 transition-all duration-200"
               >
-                🔑 비밀번호 변경
+                🔑 비밀번호 바꾸기
               </button>
               <button
                 onClick={openLogoutModal}
-                className="bg-[#161923] border border-white/5 text-slate-300 py-3 rounded-xl text-xs font-semibold hover:bg-[#1C202E] hover:border-[#00F5D4]/30 hover:text-white active:scale-95 transition-all duration-200"
+                className="bg-[#181920] border border-white/10 text-[#94A3B8] py-3 rounded-xl text-xs font-semibold hover:bg-[#202128] hover:text-white active:scale-95 transition-all duration-200"
               >
-                🚪 원격 로그아웃
+                🚪 다른 기기 로그아웃
               </button>
             </div>
           </div>
@@ -604,12 +584,12 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
         onClose={handleCloseModal}
       />
 
-      {/* 🍞 글로벌 다크 네온 토스트 팝업 */}
+      {/* 🍞 글로벌 다크 토스트 팝업 */}
       {toastMessage && (
-        <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl border text-xs font-mono font-semibold tracking-wide flex items-center gap-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.6)] transition-all duration-300 animate-fade-in z-[60] ${
+        <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-5 py-3 rounded-xl border text-xs font-mono font-semibold tracking-wide flex items-center gap-2.5 shadow-[0_12px_40px_rgba(0,0,0,0.4)] transition-all duration-300 animate-fade-in z-[60] ${
           toastType === 'success' 
-            ? 'bg-[#12141C] border-[#00F5D4]/30 text-[#00F5D4] shadow-[0_0_20px_rgba(0,245,212,0.15)]' 
-            : 'bg-[#12141C] border-[#FF2E63]/30 text-[#FF2E63] shadow-[0_0_20px_rgba(255,46,99,0.15)]'
+            ? 'bg-[#121318] border-emerald-500/30 text-emerald-400' 
+            : 'bg-[#121318] border-red-500/30 text-red-500'
         }`}>
           <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white/5 text-[10px]">
             {toastType === 'success' ? '✔' : '✕'}

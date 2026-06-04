@@ -7,7 +7,11 @@ import { isGoogleOAuthConfigured } from '../config/googleAuth';
 
 type GoogleTokenResp = { access_token?: string; expires_in?: number; token_type?: string; scope?: string };
 
-const GoogleLoginButton: React.FC = () => {
+interface GoogleLoginButtonProps {
+  onSuccess?: () => void;
+}
+
+const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ onSuccess }) => {
   const navigate = useNavigate();
   const { setToken } = useLogBox();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -31,7 +35,16 @@ const GoogleLoginButton: React.FC = () => {
           scope: tr.scope ?? 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
         };
         await setToken(token);
-        navigate('/', { replace: true });
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          const onboardingSeen = localStorage.getItem('onboardingSeen') === 'true';
+          if (onboardingSeen) {
+            navigate('/', { replace: true });
+          } else {
+            navigate('/onboarding', { replace: true });
+          }
+        }
       } finally {
         setLoading(false);
       }

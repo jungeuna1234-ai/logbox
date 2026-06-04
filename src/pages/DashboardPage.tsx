@@ -79,10 +79,7 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0B0C10] text-white p-6 pb-28 select-none relative font-sans overflow-x-hidden">
-      {/* High-tech scan line */}
-      <div className="absolute top-0 left-0 w-full h-[100px] bg-gradient-to-b from-transparent via-[#00F5D4]/5 to-transparent animate-[scan_4s_linear_infinite] pointer-events-none" />
-
-      <header className="flex justify-between items-center w-full mb-6 pb-4 border-b border-white/5">
+      <header className="flex justify-between items-center w-full mb-6 pb-4 border-b border-white/10">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-[#FF2E63] text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
             security
@@ -94,22 +91,22 @@ const DashboardPage: React.FC = () => {
           <button
             onClick={handleRefresh}
             disabled={isRefreshing || isLoading}
-            className="flex items-center justify-center p-2 rounded-xl bg-[#12141C] border border-white/5 text-slate-400 hover:text-white hover:border-[#FF2E63]/30 hover:shadow-[0_0_10px_rgba(255,46,99,0.2)] active:scale-95 transition-all duration-200 disabled:opacity-40"
+            className="flex items-center justify-center p-2 rounded-xl bg-[#121318] border border-white/10 text-slate-400 hover:text-white hover:border-white/20 active:scale-95 transition-all duration-200 disabled:opacity-40"
             title="최신 업데이트"
           >
             <span className={`material-symbols-outlined text-lg ${isRefreshing || isLoading ? 'animate-spin' : ''}`}>
               refresh
             </span>
           </button>
-          <span className="text-[10px] font-mono tracking-widest text-[#00F5D4] bg-[#00F5D4]/10 px-3 py-1 rounded-full border border-[#00F5D4]/20 shadow-[0_0_8px_rgba(0,245,212,0.15)]">
-            가디언 액티브
+          <span className="text-[10px] font-mono tracking-widest text-[#00F5D4] bg-[#00F5D4]/10 px-3 py-1 rounded-full border border-[#00F5D4]/20">
+            실시간 보호 중
           </span>
         </div>
       </header>
 
       <main className="max-w-md mx-auto space-y-6">
         {/* User profile info */}
-        <div className="w-full bg-[#12141C] border border-white/5 rounded-2xl p-6 flex flex-col justify-center gap-1 shadow-lg">
+        <div className="w-full bg-[#121318] border border-white/10 rounded-2xl p-6 flex flex-col justify-center gap-1 shadow-lg">
           <span className="text-xs text-slate-500 font-medium">
             {isGoogleConnected ? '연결됨 · 실제 계정' : '데모 모드 활성화됨'}
           </span>
@@ -125,7 +122,7 @@ const DashboardPage: React.FC = () => {
               <svg className="absolute inset-0 w-full h-full -rotate-90">
                 <circle className="text-slate-800/30" cx="120" cy="120" fill="transparent" r="110" stroke="currentColor" strokeWidth="4" />
                 <circle
-                  className="text-[#00F5D4] drop-shadow-[0_0_8px_rgba(0,245,212,0.6)] transition-all duration-500"
+                  className="text-[#00F5D4] transition-all duration-500"
                   cx="120"
                   cy="120"
                   fill="transparent"
@@ -137,20 +134,20 @@ const DashboardPage: React.FC = () => {
                 />
               </svg>
               <div className="z-10 flex flex-col items-center">
-                <div className={`w-28 h-28 bg-[#12141C] rounded-full flex items-center justify-center mb-3 border border-[#00F5D4]/20 shadow-[0_0_20px_rgba(0,245,212,0.15)] ${isLoading || isRefreshing ? 'animate-pulse' : ''}`}>
+                <div className={`w-28 h-28 bg-[#121318] rounded-full flex items-center justify-center mb-3 border border-white/10 ${isLoading || isRefreshing ? 'animate-pulse' : ''}`}>
                   <span className="material-symbols-outlined text-[#00F5D4] text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>
                     verified_user
                   </span>
                 </div>
                 <h2 className="text-xl text-[#00F5D4] font-bold tracking-widest font-mono">
-                  {isLoading || isRefreshing ? '스캐닝...' : '시스템 시큐어'}
+                  {isLoading || isRefreshing ? '메일 검사 중...' : '내 계정 안전함'}
                 </h2>
               </div>
             </div>
             <div className="mt-6 flex items-center gap-2.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00F5D4] animate-ping" />
               <p className="text-xs text-slate-400 uppercase tracking-widest font-mono">
-                {isLoading || isRefreshing ? '인바운드 패킷 벡터 분석 중...' : '연결된 이메일 스캔 완료'}
+                {isLoading || isRefreshing ? '실시간 접근 신호 분석 중...' : '연결된 이메일 검사 완료'}
               </p>
             </div>
           </section>
@@ -159,9 +156,9 @@ const DashboardPage: React.FC = () => {
         {/* Threat detected state */}
         {isThreatDetected && (
           <section className="animate-[fadeIn_0.3s_ease-out]">
-            <div className="bg-[#12141C] rounded-2xl p-6 border border-[#FF2E63]/30 shadow-[0_0_25px_rgba(255,46,99,0.15)] overflow-hidden relative">
+            <div className="bg-[#121318] rounded-2xl p-6 border border-white/10 shadow-lg overflow-hidden relative">
               <div className="absolute top-0 right-0 p-6">
-                <span className="text-[10px] font-mono text-[#FF2E63]/60 tracking-wider">LVL: CRITICAL</span>
+                <span className="text-[10px] font-mono text-[#FF2E63]/60 tracking-wider">위험도: 매우 위험</span>
               </div>
               <div className="flex items-center gap-2.5 mb-5">
                 <span className="material-symbols-outlined text-[#FF2E63] animate-bounce" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -178,13 +175,13 @@ const DashboardPage: React.FC = () => {
                 <div className="space-y-1 text-right">
                   <p className="text-[11px] text-[#FF2E63] font-mono">Now</p>
                   <p className="text-sm font-bold text-white">{attackRoute.destination}</p>
-                  <p className="text-[11px] font-mono text-[#FF2E63]/60">위협 벡터 활성</p>
+                  <p className="text-[11px] font-mono text-[#FF2E63]/60">비정상 접속 감지</p>
                 </div>
                 <div className="col-span-2 h-14 relative flex items-center justify-center my-2">
                   <div className="absolute w-full h-[1px] bg-gradient-to-r from-[#00F5D4]/40 via-[#FF2E63]/60 to-[#FF2E63]" />
-                  <div className="absolute left-0 w-2 h-2 bg-[#00F5D4] rounded-full shadow-[0_0_10px_#00F5D4]" />
-                  <div className="absolute right-0 w-2 h-2 bg-[#FF2E63] rounded-full shadow-[0_0_10px_#FF2E63]" />
-                  <div className="bg-[#12141C] px-4 py-1 rounded-full border border-[#FF2E63]/30 z-10 shadow-md">
+                  <div className="absolute left-0 w-2 h-2 bg-[#00F5D4] rounded-full" />
+                  <div className="absolute right-0 w-2 h-2 bg-[#FF2E63] rounded-full" />
+                  <div className="bg-[#121318] px-4 py-1 rounded-full border border-white/10 z-10 shadow-md">
                     <span className="text-xs font-mono text-[#FF2E63] font-bold">
                       Speed: {speed.toLocaleString()}km/h (위반)
                     </span>
@@ -194,16 +191,16 @@ const DashboardPage: React.FC = () => {
               <div className="flex flex-col gap-2.5">
                 <button
                   onClick={() => blockAccessHandler()}
-                  className="w-full bg-[#FF2E63] text-[#0B0C10] font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200 text-sm shadow-[0_0_15px_rgba(255,46,99,0.3)]"
+                  className="w-full bg-[#FF2E63] text-[#0B0C10] font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200 text-sm"
                 >
                   <span className="material-symbols-outlined text-sm">block</span>
-                  블록 액세스
+                  해커 기기 차단하기
                 </button>
                 <button
                   onClick={() => whitelistHandler()}
                   className="w-full border border-white/10 text-slate-400 font-medium py-2.5 rounded-xl hover:bg-white/5 active:scale-95 transition-all duration-200 text-xs tracking-wider font-mono"
                 >
-                  잇 워즈 미
+                  내가 접속한 게 맞아요
                 </button>
               </div>
             </div>
@@ -216,10 +213,10 @@ const DashboardPage: React.FC = () => {
           <ul className="space-y-3" aria-label="최근 보안 로그">
             {isLoading || isRefreshing ? (
               Array.from({ length: 3 }, (_, index) => (
-                <li key={index} className="h-24 rounded-2xl bg-[#12141C] animate-pulse border border-white/5" />
+                <li key={index} className="h-24 rounded-2xl bg-[#121318] animate-pulse border border-white/10" />
               ))
             ) : recentLogs.length === 0 ? (
-              <li className="rounded-2xl border border-white/5 bg-[#12141C] p-6 text-center text-sm text-slate-500">
+              <li className="rounded-2xl border border-white/10 bg-[#121318] p-6 text-center text-sm text-slate-500">
                 표시할 로그가 없습니다.
               </li>
             ) : (
@@ -236,11 +233,6 @@ const DashboardPage: React.FC = () => {
       </main>
 
       <style>{`
-        @keyframes scan {
-          0% { transform: translateY(-50px); opacity: 0; }
-          50% { opacity: 0.5; }
-          100% { transform: translateY(150px); opacity: 0; }
-        }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
@@ -257,13 +249,13 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
   const platform = parsePlatform(rawText);
   const navigate = useNavigate();
 
-  let badgeBg = 'bg-[#161923]';
-  let badgeBorder = 'border-white/5';
+  let badgeBg = 'bg-[#181920]';
+  let badgeBorder = 'border-white/10';
   let badgeText = 'text-slate-400';
   let badgeChar: React.ReactNode = '🔒';
   if (platform === 'google') {
     badgeBg = 'bg-[#FF2E63]/10';
-    badgeBorder = 'border-[#FF2E63]/30';
+    badgeBorder = 'border-white/10';
     badgeText = 'text-[#FF2E63]';
     badgeChar = 'G';
   }
@@ -279,7 +271,7 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
 
   const rowStatusBadge = (threatLevel?: number): React.ReactNode => {
     if (threatLevel === undefined) {
-      return <span className="text-xs px-2.5 py-1 rounded-full text-slate-500 bg-[#161923]">알 수 없음</span>;
+      return <span className="text-xs px-2.5 py-1 rounded-full text-slate-500 bg-[#181920] border border-white/10">알 수 없음</span>;
     }
     if (threatLevel >= ThreatLevel.Critical) {
       return <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#FF2E63] bg-[#FF2E63]/15 border border-[#FF2E63]/20">위협</span>;
@@ -317,7 +309,7 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
         role="button"
         tabIndex={0}
         aria-label={`${displayName} 보안 로그 상세 보기`}
-        className="group cursor-pointer flex items-center justify-between p-4 bg-[#12141C] rounded-2xl border border-white/5 hover:border-[#FF2E63]/30 hover:bg-[#161923] hover:shadow-[0_0_20px_rgba(255,46,99,0.05)] active:scale-[0.98] transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-[#FF2E63]/40"
+        className="group cursor-pointer flex items-center justify-between p-4 bg-[#121318] rounded-2xl border border-white/10 hover:border-white/20 hover:bg-[#181920] active:scale-[0.98] transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-white/20"
       >
         <div className="flex items-center gap-4 min-w-0">
           <div className={`w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border group-hover:scale-105 transition-transform duration-200 ${badgeBg} ${badgeBorder} ${badgeText} font-bold text-base`}>
@@ -325,7 +317,7 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white truncate">{displayName}</div>
-            <div className="text-xs text-slate-500 mt-1" title={record.timeISO}>{formatTimeLine(record.timeISO)}</div>
+            <div className="text-xs text-[#94A3B8] mt-1" title={record.timeISO}>{formatTimeLine(record.timeISO)}</div>
           </div>
         </div>
         <div className="shrink-0 ml-2 flex items-center gap-2">

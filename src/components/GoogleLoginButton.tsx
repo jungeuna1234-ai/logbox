@@ -34,6 +34,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ onSuccess }) => {
           tokenType: tr.token_type ?? 'Bearer',
           scope: tr.scope ?? 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
         };
+        localStorage.setItem('gmail_token', access);
         await setToken(token);
         if (onSuccess) {
           onSuccess();

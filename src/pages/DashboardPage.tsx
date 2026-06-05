@@ -1,13 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLogBox } from '../context/LogBoxContext';
 import { mapThreatToVelocity } from '../utils/recordUtils';
 import { ThreatLevel } from '../utils/geoUtils';
 import { LogBoxRecord } from '../types/index';
+import { fetchSecurityEmails } from '../services/gmailService';
+import { enrichThreatLevels } from '../utils/enrichRecords';
 
 const parsePlatform = (text?: string): string => {
   const raw = (text || '').toLowerCase();
   if (raw.includes('google')) return 'google';
+  if (raw.includes('naver')) return 'naver';
+  if (raw.includes('kakao')) return 'kakao';
+  if (raw.includes('instagram')) return 'instagram';
+  if (raw.includes('discord')) return 'discord';
+  if (raw.includes('netflix')) return 'netflix';
+  if (raw.includes('steam')) return 'steam';
   return 'unknown';
 };
 
@@ -29,37 +37,71 @@ const parseRoute = (rawText?: string) => {
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const {
-    speed,
+    speed: contextSpeed,
     isLoading,
-    syncTime,
+    syncTime: contextSyncTime,
     blockAccessHandler,
     whitelistHandler,
     logs,
     userProfile,
-    isGoogleConnected,
+    isGoogleConnected: contextIsGoogleConnected,
     syncGmail,
   } = useLogBox();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [localLogs, setLocalLogs] = useState<LogBoxRecord[]>([]);
+  const [localLoading, setLocalLoading] = useState<boolean>(false);
+
+  const gmailToken = localStorage.getItem('gmail_token');
+  const isGoogleConnected = contextIsGoogleConnected || !!gmailToken;
+
+  const fetchLocalGmail = async (token: string) => {
+    setLocalLoading(true);
+    try {
+      const fetched = await fetchSecurityEmails(token);
+      const enriched = enrichThreatLevels(fetched);
+      setLocalLogs(enriched);
+    } catch (err) {
+      console.error('[DashboardPage] Failed to fetch security emails:', err);
+    } finally {
+      setLocalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (gmailToken) {
+      void fetchLocalGmail(gmailToken);
+    }
+  }, [gmailToken]);
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
     try {
-      await syncGmail();
+      if (gmailToken) {
+        await fetchLocalGmail(gmailToken);
+      } else {
+        await syncGmail();
+      }
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   };
 
+  const isCurrentlyLoading = isLoading || isRefreshing || localLoading;
+
+  const displayLogs = useMemo(() => {
+    return gmailToken ? localLogs : logs;
+  }, [gmailToken, localLogs, logs]);
+
   const recentLogs = useMemo(
-    () => [...logs].sort((a, b) => (b.timeISO ?? '').localeCompare(a.timeISO ?? '')).slice(0, 4),
-    [logs],
+    () => [...displayLogs].sort((a, b) => (b.timeISO ?? '').localeCompare(a.timeISO ?? '')).slice(0, 4),
+    [displayLogs],
   );
 
   const isThreatDetected = useMemo(() => {
-    return logs.some((record) => (record.threatLevel ?? 0) >= ThreatLevel.Critical);
-  }, [logs]);
+    return displayLogs.some((record) => (record.threatLevel ?? 0) >= ThreatLevel.Critical);
+  }, [displayLogs]);
 
   const attackRecord = recentLogs.find((record) => (record.threatLevel ?? 0) >= ThreatLevel.Critical) ?? recentLogs[0];
   
@@ -77,6 +119,24 @@ const DashboardPage: React.FC = () => {
     return ip;
   }, [attackRecord]);
 
+  const speed = useMemo(() => {
+    if (displayLogs.length === 0) return 0;
+    const maxThreat = Math.max(...displayLogs.map((record) => record.threatLevel ?? 0));
+    return mapThreatToVelocity(maxThreat);
+  }, [displayLogs]);
+
+  const syncTime = useMemo(() => {
+    if (displayLogs.length === 0) return null;
+    const sorted = [...displayLogs].sort((a, b) => (b.timeISO ?? '').localeCompare(a.timeISO ?? ''));
+    const latest = sorted[0]?.timeISO;
+    if (!latest) return null;
+    try {
+      return new Date(latest).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' });
+    } catch {
+      return latest;
+    }
+  }, [displayLogs]);
+
   return (
     <div className="min-h-screen bg-[#0B0C10] text-white p-6 pb-28 select-none relative font-sans overflow-x-hidden">
       <header className="flex justify-between items-center w-full mb-6 pb-4 border-b border-white/10">
@@ -90,11 +150,11 @@ const DashboardPage: React.FC = () => {
           {/* Refresh Button */}
           <button
             onClick={handleRefresh}
-            disabled={isRefreshing || isLoading}
+            disabled={isCurrentlyLoading}
             className="flex items-center justify-center p-2 rounded-xl bg-[#121318] border border-white/10 text-slate-400 hover:text-white hover:border-white/20 active:scale-95 transition-all duration-200 disabled:opacity-40"
             title="최신 업데이트"
           >
-            <span className={`material-symbols-outlined text-lg ${isRefreshing || isLoading ? 'animate-spin' : ''}`}>
+            <span className={`material-symbols-outlined text-lg ${isCurrentlyLoading ? 'animate-spin' : ''}`}>
               refresh
             </span>
           </button>
@@ -129,25 +189,25 @@ const DashboardPage: React.FC = () => {
                   r="110"
                   stroke="currentColor"
                   strokeDasharray="691.15"
-                  strokeDashoffset={isLoading || isRefreshing ? '450' : '130'}
+                  strokeDashoffset={isCurrentlyLoading ? '450' : '130'}
                   strokeWidth="4"
                 />
               </svg>
               <div className="z-10 flex flex-col items-center">
-                <div className={`w-28 h-28 bg-[#121318] rounded-full flex items-center justify-center mb-3 border border-white/10 ${isLoading || isRefreshing ? 'animate-pulse' : ''}`}>
+                <div className={`w-28 h-28 bg-[#121318] rounded-full flex items-center justify-center mb-3 border border-white/10 ${isCurrentlyLoading ? 'animate-pulse' : ''}`}>
                   <span className="material-symbols-outlined text-[#00F5D4] text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>
                     verified_user
                   </span>
                 </div>
                 <h2 className="text-xl text-[#00F5D4] font-bold tracking-widest font-mono">
-                  {isLoading || isRefreshing ? '메일 검사 중...' : '내 계정 안전함'}
+                  {isCurrentlyLoading ? '메일 검사 중...' : '내 계정 안전함'}
                 </h2>
               </div>
             </div>
             <div className="mt-6 flex items-center gap-2.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00F5D4] animate-ping" />
               <p className="text-xs text-slate-400 uppercase tracking-widest font-mono">
-                {isLoading || isRefreshing ? '실시간 접근 신호 분석 중...' : '연결된 이메일 검사 완료'}
+                {isCurrentlyLoading ? '실시간 접근 신호 분석 중...' : '연결된 이메일 검사 완료'}
               </p>
             </div>
           </section>
@@ -211,7 +271,7 @@ const DashboardPage: React.FC = () => {
         <section className="animate-[fadeIn_0.4s_ease-out] space-y-4">
           <h4 className="text-xs text-slate-500 font-bold uppercase tracking-widest font-mono">최근 로그</h4>
           <ul className="space-y-3" aria-label="최근 보안 로그">
-            {isLoading || isRefreshing ? (
+            {isCurrentlyLoading ? (
               Array.from({ length: 3 }, (_, index) => (
                 <li key={index} className="h-24 rounded-2xl bg-[#121318] animate-pulse border border-white/10" />
               ))
@@ -246,18 +306,49 @@ export default DashboardPage;
 
 const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
   const rawText = record.raw || record.device?.name || '';
-  const platform = parsePlatform(rawText);
+  const platform = record.platform || parsePlatform(rawText);
   const navigate = useNavigate();
 
   let badgeBg = 'bg-[#181920]';
   let badgeBorder = 'border-white/10';
   let badgeText = 'text-slate-400';
   let badgeChar: React.ReactNode = '🔒';
+  
   if (platform === 'google') {
     badgeBg = 'bg-[#FF2E63]/10';
     badgeBorder = 'border-white/10';
     badgeText = 'text-[#FF2E63]';
     badgeChar = 'G';
+  } else if (platform === 'naver') {
+    badgeBg = 'bg-[#03C75A]/10';
+    badgeBorder = 'border-[#03C75A]/20';
+    badgeText = 'text-[#03C75A]';
+    badgeChar = 'N';
+  } else if (platform === 'kakao') {
+    badgeBg = 'bg-[#FEE500]/10';
+    badgeBorder = 'border-[#FEE500]/20';
+    badgeText = 'text-[#FEE500]';
+    badgeChar = 'K';
+  } else if (platform === 'instagram') {
+    badgeBg = 'bg-pink-500/10';
+    badgeBorder = 'border-pink-500/20';
+    badgeText = 'text-pink-500';
+    badgeChar = 'I';
+  } else if (platform === 'discord') {
+    badgeBg = 'bg-indigo-500/10';
+    badgeBorder = 'border-indigo-500/20';
+    badgeText = 'text-indigo-500';
+    badgeChar = 'D';
+  } else if (platform === 'netflix') {
+    badgeBg = 'bg-red-600/10';
+    badgeBorder = 'border-red-600/20';
+    badgeText = 'text-red-500';
+    badgeChar = 'N';
+  } else if (platform === 'steam') {
+    badgeBg = 'bg-sky-500/10';
+    badgeBorder = 'border-sky-500/20';
+    badgeText = 'text-sky-400';
+    badgeChar = 'S';
   }
 
   const formatTimeLine = (iso?: string) => {

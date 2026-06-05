@@ -6,19 +6,9 @@ import { geocode } from './geocodingService';
 
 const MAX_MESSAGES = 20;
 
-/** Gmail 검색: 구글 보안 메일 + 네이버/카카오 포워딩(제목·발신 패턴) */
+/** Gmail 검색: 외부 서비스의 로그인 관련 보안 메일 */
 export function buildGmailSecurityListQuery(): string {
-  const parts = [
-    'from:no-reply@accounts.google.com',
-    'subject:"[네이버]"',
-    'subject:"네이버"',
-    'subject:"Naver"',
-    'subject:"Kakao"',
-    'subject:"카카오"',
-    'from:no-reply@mail.naver.com',
-    'from:notification@mail.kakao.com',
-  ];
-  return parts.join(' OR ');
+  return 'from:(instagram OR discord OR netflix OR steam) (subject:로그인 OR subject:접속 OR subject:security OR subject:login OR subject:alert OR subject:인증)';
 }
 
 function base64UrlDecode(input: string): string {
@@ -54,10 +44,22 @@ function extractFirstRegex(text: string, rx: RegExp): string | null {
   return m && m[1] ? m[1] : null;
 }
 
-/** 제목·발신·스니펫으로 플랫폼 추정 (향후 파서 분기에 사용) */
+/** 제목·발신·스니펫으로 플랫폼 추정 */
 export function detectSecurityPlatform(subject: string, from: string, snippet: string): SecurityPlatform {
   const blob = `${subject}\n${from}\n${snippet}`.toLowerCase();
 
+  if (blob.includes('instagram') || from.includes('instagram.com')) {
+    return 'instagram';
+  }
+  if (blob.includes('discord') || from.includes('discord.com') || from.includes('discordapp.com')) {
+    return 'discord';
+  }
+  if (blob.includes('netflix') || from.includes('netflix.com')) {
+    return 'netflix';
+  }
+  if (blob.includes('steam') || from.includes('steampowered.com')) {
+    return 'steam';
+  }
   if (from.includes('accounts.google.com') || from.includes('google.com') || blob.includes('google account')) {
     return 'google';
   }
@@ -71,6 +73,63 @@ export function detectSecurityPlatform(subject: string, from: string, snippet: s
     return 'kakao';
   }
   return 'unknown';
+}
+
+/** 외부 서비스 보안 알림 파서 */
+export function parseExternalSecurityAlert(
+  platform: SecurityPlatform,
+  subject: string,
+  bodyText: string
+): {
+  summary: string;
+  ip?: string;
+  deviceHint?: string;
+  locationHint?: string;
+} {
+  const combined = `${subject}\n${bodyText}`;
+  const ip = extractFirstRegex(combined, /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/) ?? undefined;
+  
+  // Extract device
+  let deviceHint = undefined;
+  if (/chrome/i.test(combined)) deviceHint = 'Chrome';
+  else if (/safari/i.test(combined)) deviceHint = 'Safari';
+  else if (/firefox/i.test(combined)) deviceHint = 'Firefox';
+  else if (/iphone/i.test(combined)) deviceHint = 'iPhone';
+  else if (/android/i.test(combined)) deviceHint = 'Android';
+  else if (/windows/i.test(combined)) deviceHint = 'Windows';
+  else if (/mac/i.test(combined)) deviceHint = 'Mac';
+  
+  // Extract location
+  let locationHint = undefined;
+  const locMatch = combined.match(/(?:위치|지역|location|near)[:：\s]*([가-힣\w\s]+(?:시|도|군|구|국가|country)?)/i);
+  if (locMatch && locMatch[1]) {
+    locationHint = locMatch[1].trim();
+  }
+  if (!locationHint) {
+    if (/korea|한국|서울/i.test(combined)) locationHint = '서울';
+    else if (/china|중국/i.test(combined)) locationHint = '중국';
+    else if (/usa|united states|미국/i.test(combined)) locationHint = '미국';
+    else if (/russia|러시아/i.test(combined)) locationHint = '러시아';
+  }
+
+  // Format platform name for 1020 friendly look
+  let platformName = '외부 서비스';
+  if (platform === 'instagram') platformName = '인스타그램';
+  else if (platform === 'discord') platformName = '디스코드';
+  else if (platform === 'netflix') platformName = '넷플릭스';
+  else if (platform === 'steam') platformName = '스팀';
+
+  const origin = locationHint || '알 수 없음';
+  const dest = '서울'; // user default location
+
+  const summary = `[${platformName}] 로그인 감지 · ${origin} → ${dest}`;
+  
+  return {
+    summary: formatRecordSummary(summary),
+    ip,
+    deviceHint,
+    locationHint
+  };
 }
 
 /** 구글 보안 메일 요약 (기존 로직) */
@@ -226,6 +285,11 @@ export async function gmailMessageToLogRecord(
     ip = parsed.ip;
     deviceName = parsed.deviceHint;
     raw = parsed.summary;
+  } else if (['instagram', 'discord', 'netflix', 'steam'].includes(platform)) {
+    const parsed = parseExternalSecurityAlert(platform, subject, bodyText);
+    ip = parsed.ip;
+    deviceName = parsed.deviceHint;
+    raw = parsed.summary;
   } else {
     raw = formatRecordSummary(subject || bodyText || msgJson.snippet);
     ip = extractFirstRegex(bodyText, /(\d{1,3}(?:\.\d{1,3}){3})/) ?? undefined;
@@ -254,26 +318,40 @@ export async function gmailMessageToLogRecord(
 }
 
 export async function fetchSecurityEmails(accessToken: string, geocodingApiKey?: string): Promise<LogBoxRecord[]> {
-  const q = buildGmailSecurityListQuery();
-  const listUrl = `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=${MAX_MESSAGES}&q=${encodeURIComponent(q)}`;
-  const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!listRes.ok) {
-    const errText = await listRes.text().catch(() => '');
-    throw new Error(`Gmail 목록 조회 실패 (${listRes.status})${errText ? `: ${errText.slice(0, 120)}` : ''}`);
+  try {
+    const q = buildGmailSecurityListQuery();
+    const listUrl = `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=15&q=${encodeURIComponent(q)}`;
+    const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+    if (!listRes.ok) {
+      if (listRes.status === 401) {
+        console.warn('[LogBox] Gmail API 401 Unauthorized (token expired or revoked).');
+        localStorage.removeItem('gmail_token');
+        return [];
+      }
+      const errText = await listRes.text().catch(() => '');
+      throw new Error(`Gmail 목록 조회 실패 (${listRes.status})${errText ? `: ${errText.slice(0, 120)}` : ''}`);
+    }
+    const listJson = await listRes.json();
+    if (!Array.isArray(listJson.messages)) return [];
+
+    const records: LogBoxRecord[] = [];
+
+    for (const msg of listJson.messages as Array<{ id: string }>) {
+      try {
+        const msgRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!msgRes.ok) continue;
+        const msgJson = await msgRes.json();
+        records.push(await gmailMessageToLogRecord(msgJson, geocodingApiKey));
+      } catch (e) {
+        console.error(`[LogBox] Failed to fetch message detail for ${msg.id}`, e);
+      }
+    }
+
+    return records;
+  } catch (err) {
+    console.error('[LogBox] fetchSecurityEmails error:', err);
+    return [];
   }
-  const listJson = await listRes.json();
-  if (!Array.isArray(listJson.messages)) return [];
-
-  const records: LogBoxRecord[] = [];
-
-  for (const msg of listJson.messages as Array<{ id: string }>) {
-    const msgRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!msgRes.ok) continue;
-    const msgJson = await msgRes.json();
-    records.push(await gmailMessageToLogRecord(msgJson, geocodingApiKey));
-  }
-
-  return records;
 }

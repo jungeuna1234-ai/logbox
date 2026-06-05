@@ -13,7 +13,7 @@ export interface UserProfile {
 }
 
 /** 보안 알림 출처 (Gmail로 포워딩된 메일 포함) */
-export type SecurityPlatform = 'google' | 'naver' | 'kakao' | 'unknown';
+export type SecurityPlatform = 'google' | 'naver' | 'kakao' | 'instagram' | 'discord' | 'netflix' | 'steam' | 'unknown';
 
 /** 기획서 6번 — 신뢰 기기 */
 export interface TrustedDevice {

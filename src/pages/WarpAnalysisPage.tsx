@@ -3,6 +3,9 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { InfoCell } from '../components/InfoCell';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLogBox } from '../context/LogBoxContext';
+import { LogBoxRecord } from '../types/index';
+import { fetchSecurityEmails } from '../services/gmailService';
+import { enrichThreatLevels } from '../utils/enrichRecords';
 
 const simulateApiCall = async (_url: string, _data?: any): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
@@ -16,19 +19,6 @@ const simulateApiCall = async (_url: string, _data?: any): Promise<void> => {
     }, 1200);
   });
 };
-
-interface LogBoxRecord {
-  id?: string;
-  latitude?: string | number;
-  longitude?: string | number;
-  timeISO?: string;
-  ip?: string;
-  device?: {
-    id: string;
-    name?: string;
-  };
-  raw?: string;
-}
 
 interface RouteProps {
   origin: string;
@@ -180,9 +170,33 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
   const location = useLocation();
   const logBoxContext = useLogBox();
 
-  // state에서 데이터 복구 또는 context에서 fallback
+  // state에서 데이터 복구 또는 query parameter (?id=...) 또는 context에서 fallback
   const locationState = location.state as { logData?: LogBoxRecord } | null;
-  const incoming = propsIncoming ?? locationState?.logData ?? logBoxContext.logs[0];
+  const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const queryId = queryParams.get('id');
+
+  const [localLogs, setLocalLogs] = useState<LogBoxRecord[]>([]);
+
+  useEffect(() => {
+    const gmailToken = localStorage.getItem('gmail_token');
+    if (gmailToken && logBoxContext.logs.length === 0) {
+      fetchSecurityEmails(gmailToken)
+        .then((fetched) => {
+          setLocalLogs(enrichThreatLevels(fetched));
+        })
+        .catch((e) => console.error('[WarpAnalysisPage] Failed to fetch security emails:', e));
+    }
+  }, [logBoxContext.logs.length]);
+
+  const matchedRecord = useMemo(() => {
+    if (locationState?.logData) return locationState.logData;
+    if (queryId) {
+      return logBoxContext.logs.find((r) => r.id === queryId) || localLogs.find((r) => r.id === queryId) || null;
+    }
+    return null;
+  }, [locationState, queryId, logBoxContext.logs, localLogs]);
+
+  const incoming = propsIncoming ?? matchedRecord ?? logBoxContext.logs[0];
 
   // 토스트 전용 상태 및 메소드
   const [toastMessage, setToastMessage] = useState<string | null>(null);

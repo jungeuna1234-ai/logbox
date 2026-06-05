@@ -377,7 +377,7 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
   };
 
   const handleClick = () => {
-    navigate('/warp-analysis', { state: { logData: record } });
+    navigate(`/warp-analysis?id=${record.id}`, { state: { logData: record } });
   };
 
   const route = parseRoute(record.raw);

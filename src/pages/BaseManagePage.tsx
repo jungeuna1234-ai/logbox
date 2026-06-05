@@ -3,9 +3,11 @@
 // LogBox 거점 및 신뢰 기기 관리 — 프리미엄 다크 사이버펑크 테마 및 커스텀 모달 UI
 // =============================================================================
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useLogBox } from '../context/LogBoxContext';
 import { TrustedDevice } from '../types';
+import { fetchSecurityEmails } from '../services/gmailService';
+import { isDeviceTrusted, addTrustedDeviceName, buildCurrentTrustedDevice } from '../utils/deviceUtils';
 
 // =============================================================================
 // ① 데모 데이터 상수
@@ -102,9 +104,10 @@ const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({ device, onClose
 interface DeviceCardProps {
   device: TrustedDevice & { ip?: string; location?: string; isHacker?: boolean };
   onRemoteLogout: (device: any) => void;
+  onTrustDevice?: (deviceName: string) => void;
 }
 
-const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRemoteLogout }) => {
+const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRemoteLogout, onTrustDevice }) => {
   const isHacker = device.isHacker === true;
   const ip = device.ip;
   const location = device.location;
@@ -114,6 +117,8 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRemoteLogout }) => {
       className={`p-6 rounded-2xl border transition-all duration-200 ${
         device.isCurrent
           ? 'border-[#00F5D4]/40 bg-[#00F5D4]/5'
+          : device.trusted
+          ? 'border-[#00F5D4]/20 bg-[#00F5D4]/5'
           : isHacker
           ? 'border-red-500/30 bg-red-500/5'
           : 'border-white/10 bg-[#121318]'
@@ -124,7 +129,7 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRemoteLogout }) => {
           <div className="flex items-center gap-2 mb-2.5 flex-wrap">
             <span
               className={`text-sm font-bold truncate ${
-                device.isCurrent ? 'text-white' : isHacker ? 'text-[#FF2E63]' : 'text-slate-200'
+                device.isCurrent ? 'text-white' : device.trusted ? 'text-[#00F5D4]' : isHacker ? 'text-[#FF2E63]' : 'text-slate-200'
               }`}
             >
               {device.name}
@@ -134,53 +139,78 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRemoteLogout }) => {
                 현재 기기
               </span>
             )}
-            {isHacker && (
-              <span className="shrink-0 text-[9px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 font-bold">
-                ⚠ 해킹 의심 기기
+            {device.trusted && !device.isCurrent && (
+              <span className="shrink-0 text-[9px] px-2 py-0.5 rounded-full bg-[#00F5D4]/20 text-[#00F5D4] border border-[#00F5D4]/30 font-bold">
+                안전 · 신뢰 기기
               </span>
             )}
-            {device.trusted && !device.isCurrent && !isHacker && (
-              <span className="shrink-0 text-[9px] px-2 py-0.5 rounded-full bg-slate-700/60 text-[#94A3B8] border border-slate-700">
-                안전한 기기
+            {!device.trusted && isHacker && !device.isCurrent && (
+              <span className="shrink-0 text-[9px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 border border-red-500/20 font-bold">
+                ⚠ 해킹 의심 기기
               </span>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-mono">
             <span className="text-slate-500 font-medium">OS</span>
-            <span className={isHacker ? 'text-[#FF2E63]/80' : 'text-[#94A3B8]'}>{device.os ?? '-'}</span>
+            <span className={isHacker && !device.trusted ? 'text-[#FF2E63]/80' : 'text-[#94A3B8]'}>{device.os ?? '-'}</span>
             <span className="text-slate-500 font-medium">브라우저</span>
-            <span className={isHacker ? 'text-[#FF2E63]/80' : 'text-[#94A3B8]'}>{device.browser ?? '-'}</span>
+            <span className={isHacker && !device.trusted ? 'text-[#FF2E63]/80' : 'text-[#94A3B8]'}>{device.browser ?? '-'}</span>
             {ip && (
               <>
                 <span className="text-slate-500 font-medium">IP</span>
-                <span className={isHacker ? 'text-[#FF2E63] font-bold' : 'text-[#94A3B8]'}>{ip}</span>
+                <span className={isHacker && !device.trusted ? 'text-[#FF2E63] font-bold' : 'text-[#94A3B8]'}>{ip}</span>
               </>
             )}
             {location && (
               <>
                 <span className="text-slate-500 font-medium">위치</span>
-                <span className={isHacker ? 'text-[#FF2E63] font-bold' : 'text-[#94A3B8]'}>🌍 {location}</span>
+                <span className={isHacker && !device.trusted ? 'text-[#FF2E63] font-bold' : 'text-[#94A3B8]'}>🌍 {location}</span>
               </>
             )}
           </div>
         </div>
 
         {!device.isCurrent && (
-          <button
-            onClick={() => onRemoteLogout(device)}
-            className={`shrink-0 px-3.5 py-2 rounded-xl text-[11px] font-bold active:scale-95 transition-all duration-200 ${
-              isHacker
-                ? 'bg-[#FF2E63] text-[#0B0C10] hover:bg-[#ff4d7c]'
-                : 'bg-[#181920] text-slate-300 hover:bg-[#202128] border border-white/10'
-            }`}
-          >
-            원격 로그아웃
-          </button>
+          <div className="flex flex-col gap-2 shrink-0">
+            {!device.trusted && onTrustDevice && (
+              <button
+                onClick={() => onTrustDevice(device.name)}
+                className="px-3.5 py-2 rounded-xl text-[11px] font-bold bg-[#00F5D4] text-[#0B0C10] hover:bg-[#33ffd8] active:scale-95 transition-all duration-200"
+              >
+                신뢰 기기 등록
+              </button>
+            )}
+            <button
+              onClick={() => onRemoteLogout(device)}
+              className={`px-3.5 py-2 rounded-xl text-[11px] font-bold active:scale-95 transition-all duration-200 ${
+                isHacker && !device.trusted
+                  ? 'bg-[#FF2E63] text-[#0B0C10] hover:bg-[#ff4d7c]'
+                  : 'bg-[#181920] text-slate-300 hover:bg-[#202128] border border-white/10'
+              }`}
+            >
+              원격 로그아웃
+            </button>
+          </div>
         )}
       </div>
     </div>
   );
+};
+
+const parseRoute = (rawText?: string) => {
+  const text = rawText || '';
+  const match = text.match(/([^\s·[\]]+)\s*(?:→|->)\s*([^\s·[\]]+)/);
+  if (match) {
+    return {
+      origin: match[1].trim(),
+      destination: match[2].trim(),
+    };
+  }
+  return {
+    origin: '알 수 없음',
+    destination: '알 수 없음',
+  };
 };
 
 // =============================================================================
@@ -190,28 +220,8 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRemoteLogout }) => {
 const BaseManagePage: React.FC = () => {
   const { devices: ctxDevices, addDevice, removeDevice } = useLogBox();
 
-  const [devices, setDevices] = useState<Array<TrustedDevice & { ip?: string; location?: string; isHacker?: boolean }>>(() => {
-    const currentCtxDevice = ctxDevices.find((d) => d.isCurrent);
-    const currentDevice: TrustedDevice = currentCtxDevice ?? {
-      id: 'current-device',
-      name: 'Windows PC · Chrome (현재)',
-      model: 'Desktop',
-      os: 'Windows 11',
-      browser: 'Chrome',
-      trusted: true,
-      isCurrent: true,
-      lastActive: new Date().toISOString(),
-    };
-
-    // Context 기기 목록 중에서 현재 기기가 아닌 다른 기기들도 초기 상태에 추가
-    const otherCtxDevices = ctxDevices.filter((d) => !d.isCurrent);
-
-    return [
-      { ...currentDevice, isCurrent: true },
-      ...otherCtxDevices,
-      HACKER_DEVICE_INFO,
-    ];
-  });
+  const [devices, setDevices] = useState<Array<TrustedDevice & { ip?: string; location?: string; isHacker?: boolean }>>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [newDeviceModel, setNewDeviceModel] = useState('');
   const [newDeviceOs, setNewDeviceOs] = useState('');
@@ -232,6 +242,80 @@ const BaseManagePage: React.FC = () => {
     }, 3000);
   }, []);
 
+  const loadDevices = useCallback(() => {
+    const token = localStorage.getItem('gmail_token');
+    if (token) {
+      setIsLoading(true);
+      fetchSecurityEmails(token)
+        .then((records) => {
+          const uniqueDevicesMap = new Map<string, typeof devices[0]>();
+          
+          // 1. Current Device
+          const currentCtxDevice = ctxDevices.find((d) => d.isCurrent) || buildCurrentTrustedDevice();
+          const currentDev = {
+            ...currentCtxDevice,
+            trusted: true,
+            isCurrent: true,
+          };
+          uniqueDevicesMap.set(currentDev.name.toLowerCase(), currentDev);
+
+          // 2. Extract from records
+          records.forEach((r) => {
+            const devName = r.device?.name || (r.platform && r.platform !== 'unknown' ? `${r.platform} Client` : null);
+            if (!devName) return;
+
+            const lowerName = devName.toLowerCase();
+            const route = parseRoute(r.raw);
+            const isTrusted = isDeviceTrusted(devName);
+            
+            const existing = uniqueDevicesMap.get(lowerName);
+            if (existing && existing.isCurrent) return;
+
+            let os = r.device?.os;
+            let browser = r.device?.browser;
+            if (!os || !browser) {
+              if (/chrome/i.test(devName)) browser = 'Chrome';
+              else if (/safari/i.test(devName)) browser = 'Safari';
+              else if (/iphone/i.test(devName)) { os = 'iOS'; browser = 'Safari'; }
+              else if (/windows/i.test(devName)) os = 'Windows';
+              else if (/android/i.test(devName)) os = 'Android';
+            }
+
+            uniqueDevicesMap.set(lowerName, {
+              id: r.device?.id || `dev-${r.id}`,
+              name: devName,
+              model: r.device?.model || devName,
+              os: os || 'Unknown OS',
+              browser: browser || 'Unknown Browser',
+              trusted: isTrusted,
+              isCurrent: false,
+              isHacker: !isTrusted,
+              ip: r.ip || 'Unknown IP',
+              location: route.origin || 'Unknown Location',
+              lastActive: r.timeISO,
+            });
+          });
+
+          setDevices(Array.from(uniqueDevicesMap.values()));
+        })
+        .catch((err) => console.error(err))
+        .finally(() => setIsLoading(false));
+    } else {
+      // Demo Mode
+      const currentCtxDevice = ctxDevices.find((d) => d.isCurrent) || buildCurrentTrustedDevice();
+      const otherCtxDevices = ctxDevices.filter((d) => !d.isCurrent);
+      setDevices([
+        { ...currentCtxDevice, isCurrent: true, trusted: true },
+        ...otherCtxDevices.map(d => ({ ...d, trusted: isDeviceTrusted(d.name) })),
+        { ...HACKER_DEVICE_INFO, trusted: isDeviceTrusted(HACKER_DEVICE_INFO.name) }
+      ]);
+    }
+  }, [ctxDevices]);
+
+  useEffect(() => {
+    loadDevices();
+  }, [loadDevices]);
+
   // ── [원격 로그아웃 클릭] ──
   const handleRemoteLogoutClick = useCallback((device: any) => {
     setConfirmLogoutDevice(device);
@@ -249,15 +333,24 @@ const BaseManagePage: React.FC = () => {
     showToast("해당 기기의 접근 세션이 성공적으로 차단되었습니다.", "success");
   }, [confirmLogoutDevice, removeDevice, showToast]);
 
+  const handleTrustDevice = useCallback((deviceName: string) => {
+    addTrustedDeviceName(deviceName);
+    showToast(`"${deviceName}"이(가) 신뢰 기기로 등록되었습니다.`, "success");
+    loadDevices(); // reload list
+  }, [loadDevices, showToast]);
+
   const handleAddTrustedDevice = useCallback(() => {
     const model = newDeviceModel.trim() || 'Unknown Device';
     const os = newDeviceOs.trim() || 'Unknown OS';
     const browser = newDeviceBrowser.trim() || 'Unknown Browser';
     const now = new Date().toISOString();
 
+    const name = `${model} · ${browser}`;
+    addTrustedDeviceName(name);
+
     const newDevice: TrustedDevice & { ip?: string; location?: string; isHacker?: boolean } = {
       id: `trusted-${Date.now()}`,
-      name: `${model} · ${browser}`,
+      name,
       model,
       os,
       browser,
@@ -301,7 +394,7 @@ const BaseManagePage: React.FC = () => {
             <p className="text-[10px] text-slate-500 font-mono mt-0.5">
               {devices.length}개 기기 연결됨 ·{' '}
               <span className="text-[#FF2E63] font-semibold">
-                {devices.filter((d) => !d.isCurrent).length}개 외부 기기
+                {devices.filter((d) => !d.isCurrent && !d.trusted).length}개 외부 의심 기기
               </span>
             </p>
           </div>
@@ -309,15 +402,22 @@ const BaseManagePage: React.FC = () => {
 
         {/* 기기 카드 목록 */}
         <div className="space-y-3">
-          {devices.map((device) => (
-            <DeviceCard
-              key={device.id}
-              device={device}
-              onRemoteLogout={handleRemoteLogoutClick}
-            />
-          ))}
+          {isLoading ? (
+            Array.from({ length: 2 }, (_, index) => (
+              <div key={index} className="h-32 rounded-2xl bg-[#121318] animate-pulse border border-white/10" />
+            ))
+          ) : (
+            devices.map((device) => (
+              <DeviceCard
+                key={device.id}
+                device={device}
+                onRemoteLogout={handleRemoteLogoutClick}
+                onTrustDevice={handleTrustDevice}
+              />
+            ))
+          )}
 
-          {devices.length === 1 && devices[0].isCurrent && (
+          {!isLoading && devices.length === 1 && devices[0].isCurrent && (
             <div className="text-center py-4 text-slate-500 text-xs font-mono border border-white/10 rounded-2xl bg-[#121318]">
               ✅ 현재 기기만 연결되어 있습니다. 시스템 안전함.
             </div>

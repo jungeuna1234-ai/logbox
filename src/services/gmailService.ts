@@ -314,6 +314,9 @@ export async function gmailMessageToLogRecord(
     timeISO,
     threatLevel: getThreatLevel(0),
     raw,
+    body: bodyText,
+    from: from,
+    subject: subject,
   };
 }
 

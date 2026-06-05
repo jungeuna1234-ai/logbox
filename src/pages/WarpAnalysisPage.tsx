@@ -6,6 +6,7 @@ import { useLogBox } from '../context/LogBoxContext';
 import { LogBoxRecord } from '../types/index';
 import { fetchSecurityEmails } from '../services/gmailService';
 import { enrichThreatLevels } from '../utils/enrichRecords';
+import { isDeviceTrusted, addTrustedDeviceName } from '../utils/deviceUtils';
 
 const simulateApiCall = async (_url: string, _data?: any): Promise<void> => {
   return new Promise<void>((resolve, reject) => {
@@ -161,6 +162,48 @@ const getCoordsForLocation = (name: string): [number, number] => {
   return [420, 110];
 };
 
+function getPlatformSecurityUrls(platform?: string): { passwordUrl: string; logoutUrl: string } {
+  const plat = (platform || 'google').toLowerCase();
+  switch (plat) {
+    case 'naver':
+      return {
+        passwordUrl: 'https://nid.naver.com/user2/help/myInfo.nhn?menu=security',
+        logoutUrl: 'https://nid.naver.com/user2/help/myInfo.nhn?menu=security',
+      };
+    case 'kakao':
+      return {
+        passwordUrl: 'https://accounts.kakao.com/weblogin/account/security',
+        logoutUrl: 'https://accounts.kakao.com/weblogin/account/security',
+      };
+    case 'instagram':
+      return {
+        passwordUrl: 'https://accountscenter.instagram.com/password_and_security/',
+        logoutUrl: 'https://accountscenter.instagram.com/password_and_security/',
+      };
+    case 'discord':
+      return {
+        passwordUrl: 'https://discord.com/settings/account',
+        logoutUrl: 'https://discord.com/settings/account',
+      };
+    case 'netflix':
+      return {
+        passwordUrl: 'https://www.netflix.com/password',
+        logoutUrl: 'https://www.netflix.com/YourAccount',
+      };
+    case 'steam':
+      return {
+        passwordUrl: 'https://store.steampowered.com/account/',
+        logoutUrl: 'https://help.steampowered.com/en/wizard/HelpWithLoginInfo',
+      };
+    case 'google':
+    default:
+      return {
+        passwordUrl: 'https://myaccount.google.com/security',
+        logoutUrl: 'https://myaccount.google.com/security',
+      };
+  }
+}
+
 export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: RouteProps; blockAccessHandler?: (id: string) => Promise<void> }> = ({
   incoming: propsIncoming,
   route: propsRoute,
@@ -176,17 +219,18 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
   const queryId = queryParams.get('id');
 
   const [localLogs, setLocalLogs] = useState<LogBoxRecord[]>([]);
+  const [trustUpdateTrigger, setTrustUpdateTrigger] = useState(0);
 
   useEffect(() => {
     const gmailToken = localStorage.getItem('gmail_token');
-    if (gmailToken && logBoxContext.logs.length === 0) {
+    if (gmailToken) {
       fetchSecurityEmails(gmailToken)
         .then((fetched) => {
           setLocalLogs(enrichThreatLevels(fetched));
         })
         .catch((e) => console.error('[WarpAnalysisPage] Failed to fetch security emails:', e));
     }
-  }, [logBoxContext.logs.length]);
+  }, []);
 
   const matchedRecord = useMemo(() => {
     if (locationState?.logData) return locationState.logData;
@@ -345,6 +389,15 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
       modalTimers.current.push(timer);
     }
   }, [logoutCompleted, handleCloseModal]);
+
+  const handleTrustCurrentDevice = useCallback(() => {
+    const devName = incoming.device?.name;
+    if (devName) {
+      addTrustedDeviceName(devName);
+      showToast(`"${devName}"이(가) 신뢰 기기로 등록되었습니다.`, "success");
+      setTrustUpdateTrigger((c) => c + 1);
+    }
+  }, [incoming.device?.name, showToast]);
 
   const handleBlockAccess = useCallback(async () => {
     if (isBlocking) return;
@@ -510,7 +563,12 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
               </div>
             </div>
             <div className="text-right">
-              상태: <span className="text-[#FF2E63] font-bold">의심스러운 기기 발견</span>
+              상태:{' '}
+              {isDeviceTrusted(incoming.device?.name) ? (
+                <span className="text-[#00F5D4] font-bold">✓ 신뢰 기기 (안전)</span>
+              ) : (
+                <span className="text-[#FF2E63] font-bold">의심스러운 기기 발견</span>
+              )}
             </div>
           </div>
 
@@ -523,10 +581,10 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
         {/* 왼쪽 패널: 상세 정보 카드 */}
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <InfoCell label="접속한 서비스" value={routeLabel} sub="해외 접속 경로 분석" />
+            <InfoCell label="접속한 서비스" value={routeLabel} sub={`출발지: ${route.origin}`} />
             <InfoCell label="발생 시각" value={displayTime} sub="로그 위조 여부 검증 완료" />
             <InfoCell label="기기 명칭" value={incoming.device?.name ?? '확인되지 않음'} sub={`ID: ${incoming.device?.id ?? 'N/A'}`} />
-            <InfoCell label="접속 IP 주소" value={incoming.ip ?? '확인되지 않음'} sub="접속 정보 조작 방지 작동 중" />
+            <InfoCell label="접속 IP 주소" value={incoming.ip ?? '확인되지 않음'} sub={`국가: ${route.origin}`} />
           </div>
 
           <div className="bg-[#121318] border border-white/10 rounded-2xl p-4.5 space-y-2">
@@ -537,7 +595,9 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
             </div>
             <div className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-[#0B0C10] border border-white/10">
               <span className="text-slate-400 font-mono">위치 분석 경고</span>
-              <span className="text-[#FF2E63] font-mono font-bold">이상 접속 감지</span>
+              <span className={isDeviceTrusted(incoming.device?.name) ? "text-[#00F5D4] font-mono font-bold" : "text-[#FF2E63] font-mono font-bold"}>
+                {isDeviceTrusted(incoming.device?.name) ? "안전 인증됨" : "이상 접속 감지"}
+              </span>
             </div>
           </div>
         </div>
@@ -550,6 +610,16 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
           </div>
 
           <div className="space-y-3">
+            {incoming.device?.name && !isDeviceTrusted(incoming.device?.name) && (
+              <button
+                onClick={handleTrustCurrentDevice}
+                className="w-full bg-[#00F5D4] text-[#0B0C10] font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#33ffd8] active:scale-95 transition-all duration-200 text-sm"
+              >
+                <span className="material-symbols-outlined text-sm">verified_user</span>
+                신뢰 기기 등록
+              </button>
+            )}
+
             <button
               onClick={handleBlockAccess}
               disabled={isBlocking}
@@ -571,13 +641,21 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
             
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setActiveModal('password')}
+                onClick={() => {
+                  const urls = getPlatformSecurityUrls(incoming.platform);
+                  window.open(urls.passwordUrl, '_blank');
+                  setActiveModal('password');
+                }}
                 className="bg-[#181920] border border-white/10 text-[#94A3B8] py-3 rounded-xl text-xs font-semibold hover:bg-[#202128] hover:text-white active:scale-95 transition-all duration-200"
               >
                 🔑 비밀번호 바꾸기
               </button>
               <button
-                onClick={openLogoutModal}
+                onClick={() => {
+                  const urls = getPlatformSecurityUrls(incoming.platform);
+                  window.open(urls.logoutUrl, '_blank');
+                  openLogoutModal();
+                }}
                 className="bg-[#181920] border border-white/10 text-[#94A3B8] py-3 rounded-xl text-xs font-semibold hover:bg-[#202128] hover:text-white active:scale-95 transition-all duration-200"
               >
                 🚪 다른 기기 로그아웃

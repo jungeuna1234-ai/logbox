@@ -6,6 +6,7 @@ import { ThreatLevel } from '../utils/geoUtils';
 import { LogBoxRecord } from '../types/index';
 import { fetchSecurityEmails } from '../services/gmailService';
 import { enrichThreatLevels } from '../utils/enrichRecords';
+import { isDeviceTrusted } from '../utils/deviceUtils';
 
 const parsePlatform = (text?: string): string => {
   const raw = (text || '').toLowerCase();
@@ -100,7 +101,10 @@ const DashboardPage: React.FC = () => {
   );
 
   const isThreatDetected = useMemo(() => {
-    return displayLogs.some((record) => (record.threatLevel ?? 0) >= ThreatLevel.Critical);
+    return displayLogs.some((record) => {
+      if (isDeviceTrusted(record.device?.name)) return false;
+      return (record.threatLevel ?? 0) >= ThreatLevel.Critical;
+    });
   }, [displayLogs]);
 
   const attackRecord = recentLogs.find((record) => (record.threatLevel ?? 0) >= ThreatLevel.Critical) ?? recentLogs[0];
@@ -361,6 +365,13 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
   };
 
   const rowStatusBadge = (threatLevel?: number): React.ReactNode => {
+    if (isDeviceTrusted(record.device?.name)) {
+      return (
+        <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#00F5D4] bg-[#00F5D4]/15 border border-[#00F5D4]/20">
+          신뢰 기기
+        </span>
+      );
+    }
     if (threatLevel === undefined) {
       return <span className="text-xs px-2.5 py-1 rounded-full text-slate-500 bg-[#181920] border border-white/10">알 수 없음</span>;
     }

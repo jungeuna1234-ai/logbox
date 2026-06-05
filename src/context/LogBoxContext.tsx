@@ -80,7 +80,9 @@ const initialMock = (): State => {
   const now = new Date().toISOString();
   const current = buildCurrentTrustedDevice();
 
-  const records: LogBoxRecord[] = [
+  const hasGmailToken = typeof window !== 'undefined' && !!localStorage.getItem('gmail_token');
+
+  const records: LogBoxRecord[] = hasGmailToken ? [] : [
     {
       id: 'rec-google-1',
       platform: 'google',
@@ -127,7 +129,7 @@ const initialMock = (): State => {
     },
   ];
 
-  const devices: TrustedDevice[] = enrichDevicesWithCurrent([
+  const devices: TrustedDevice[] = hasGmailToken ? [current] : enrichDevicesWithCurrent([
     current,
     ...records.map((r) => r.device).filter((d): d is TrustedDevice => Boolean(d)),
   ]);

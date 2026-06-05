@@ -48,4 +48,7 @@ export interface LogBoxRecord {
   timeISO?: string;
   threatLevel?: number;
   raw?: string;
+  body?: string;
+  from?: string;
+  subject?: string;
 }

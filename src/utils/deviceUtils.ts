@@ -56,3 +56,30 @@ export function buildCurrentTrustedDevice(): TrustedDevice {
     trusted: true,
   };
 }
+
+export function getTrustedDevices(): string[] {
+  try {
+    const raw = localStorage.getItem('trusted_devices');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addTrustedDeviceName(name: string): void {
+  try {
+    const list = getTrustedDevices();
+    if (!list.includes(name)) {
+      list.push(name);
+      localStorage.setItem('trusted_devices', JSON.stringify(list));
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export function isDeviceTrusted(name?: string): boolean {
+  if (!name) return false;
+  const list = getTrustedDevices();
+  return list.some((trustedName) => name.toLowerCase().includes(trustedName.toLowerCase()));
+}

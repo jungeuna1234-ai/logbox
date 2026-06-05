@@ -3,9 +3,12 @@
 // LogBox 메일센터 — 프리미엄 다크 사이버펑크 테마 및 커스텀 모달 UI 연동
 // =============================================================================
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useLogBox } from '../context/LogBoxContext';
 import { TrustedDevice } from '../types';
+import { fetchSecurityEmails } from '../services/gmailService';
+import { isDeviceTrusted, addTrustedDeviceName } from '../utils/deviceUtils';
 
 // =============================================================================
 // ① 타입 정의
@@ -19,6 +22,7 @@ interface Email {
   riskScore: number; // 0~100
   body: string;
   platform: 'naver' | 'google' | 'other';
+  deviceName?: string;
 }
 
 // =============================================================================
@@ -120,22 +124,70 @@ https://naver-support.kr.com/secure/password-reset
 };
 
 // =============================================================================
-// ③ 위험도 점수 → 색상 유틸리티
+// ③ 헬퍼 함수 및 위험도 점수 → 색상 유틸리티
 // =============================================================================
 
-function getRiskColor(score: number): string {
+function extractDomain(text: string): string | null {
+  const urlRegex = /(https?:\/\/[^\s/$.?#].[^\s]*)/gi;
+  const match = text.match(urlRegex);
+  if (match && match[0]) {
+    try {
+      const url = new URL(match[0]);
+      return url.hostname;
+    } catch {
+      const hostMatch = match[0].match(/https?:\/\/([^\/\s]+)/i);
+      return hostMatch ? hostMatch[1] : null;
+    }
+  }
+  const domainRegex = /\b([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b/i;
+  const domainMatch = text.match(domainRegex);
+  return domainMatch ? domainMatch[1] : null;
+}
+
+function formatRelativeTime(isoString: string): string {
+  const now = new Date();
+  const date = new Date(isoString);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return '방금 전';
+  if (diffMins < 60) return `${diffMins}분 전`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}시간 전`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}일 전`;
+}
+
+function threatLevelToRiskScore(level?: number): number {
+  if (level === undefined) return 15;
+  switch (level) {
+    case 3: // Critical
+      return 95;
+    case 2: // High
+      return 82;
+    case 1: // Medium
+      return 55;
+    case 0: // Low
+    default:
+      return 15;
+  }
+}
+
+function getRiskColor(score: number, isTrustedDevice?: boolean): string {
+  if (isTrustedDevice) return 'text-[#00F5D4]';
   if (score >= 90) return 'text-[#FF2E63]';
   if (score >= 70) return 'text-orange-400';
   return 'text-yellow-400';
 }
 
-function getRiskBg(score: number): string {
+function getRiskBg(score: number, isTrustedDevice?: boolean): string {
+  if (isTrustedDevice) return 'bg-[#00F5D4]/15 border-[#00F5D4]/30';
   if (score >= 90) return 'bg-[#FF2E63]/15 border-[#FF2E63]/30';
   if (score >= 70) return 'bg-orange-400/15 border-orange-400/25';
   return 'bg-yellow-400/15 border-yellow-400/25';
 }
 
-function getRiskLabel(score: number): string {
+function getRiskLabel(score: number, isTrustedDevice?: boolean): string {
+  if (isTrustedDevice) return '✓ 신뢰 기기 — 안전한 접근으로 인증됨';
   if (score >= 90) return '🚨 매우 위험 — 사기 메일로 의심됩니다!';
   if (score >= 70) return '⚠️ 위험 — 피싱 시도 가능성 높음';
   return '⚠️ 주의 — 의심스러운 메일';
@@ -149,9 +201,13 @@ interface AnalysisCardProps {
   email: Email;
   onBack: () => void;
   onBlockClick: () => void;
+  onTrustClick?: (deviceName: string) => void;
 }
 
-const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick }) => {
+const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick, onTrustClick }) => {
+  const isTrusted = isDeviceTrusted(email.deviceName);
+  const domain = extractDomain(email.body);
+
   return (
     <div className="bg-[#121318] border border-white/10 rounded-2xl p-6 mb-6 space-y-5 animate-[fadeIn_0.3s_ease-out]">
       <button
@@ -186,7 +242,7 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
 
       {/* ── AI 분석 결과 카드 ── */}
       <div
-        className={`rounded-xl border p-5 ${getRiskBg(email.riskScore)} bg-[#181920]`}
+        className={`rounded-xl border p-5 ${getRiskBg(email.riskScore, isTrusted)} bg-[#181920]`}
       >
         <div className="flex items-center gap-2 mb-3">
           <span className="material-symbols-outlined text-xs text-white">psychology</span>
@@ -195,24 +251,26 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
           </span>
         </div>
 
-        <p className={`text-base font-extrabold mb-4 ${getRiskColor(email.riskScore)}`}>
-          {getRiskLabel(email.riskScore)}
+        <p className={`text-base font-extrabold mb-4 ${getRiskColor(email.riskScore, isTrusted)}`}>
+          {getRiskLabel(email.riskScore, isTrusted)}
         </p>
 
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[9px] font-mono text-slate-500">위험 지수</span>
-            <span className={`text-xs font-bold font-mono ${getRiskColor(email.riskScore)}`}>
-              {email.riskScore} / 100
+            <span className={`text-xs font-bold font-mono ${getRiskColor(email.riskScore, isTrusted)}`}>
+              {isTrusted ? 0 : email.riskScore} / 100
             </span>
           </div>
           <div className="w-full h-2 bg-[#0B0C10] rounded-full overflow-hidden border border-white/10">
             <div
               className="h-full rounded-full transition-all duration-1000"
               style={{
-                width: `${email.riskScore}%`,
+                width: `${isTrusted ? 0 : email.riskScore}%`,
                 background:
-                  email.riskScore >= 90
+                  isTrusted
+                    ? 'linear-gradient(90deg, #00F5D4, #33ffd8)'
+                    : email.riskScore >= 90
                     ? 'linear-gradient(90deg, #FF2E63, #d61c4e)'
                     : 'linear-gradient(90deg, #f97316, #dc2626)',
               }}
@@ -227,7 +285,15 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
             <span>🔗 메일 속 위험한 링크(URL) 검사</span>
           </div>
           <p className="text-[11px] text-slate-300 font-mono leading-relaxed">
-            메일 본문에 포함된 도메인 <span className="text-[#FF2E63] font-bold">[secure-auth-update.net]</span> 추적 결과, 피싱 사기 사이트로 등록된 위험 주소로 확인되었습니다.
+            {domain ? (
+              <>
+                메일 본문에 포함된 도메인 <span className="text-[#FF2E63] font-bold">[{domain}]</span> 추적 결과, 피싱 사기 사이트로 등록된 위험 주소로 확인되었습니다.
+              </>
+            ) : (
+              <>
+                메일 본문에 포함된 외부 도메인이 발견되지 않았습니다. 외부 연결 링크가 없는 안전한 이메일 패턴입니다.
+              </>
+            )}
           </p>
         </div>
 
@@ -248,6 +314,16 @@ const AnalysisCard: React.FC<AnalysisCardProps> = ({ email, onBack, onBlockClick
           </ul>
         </div>
       </div>
+
+      {/* ── 신뢰 기기 등록 버튼 ── */}
+      {email.deviceName && !isTrusted && (
+        <button
+          onClick={() => onTrustClick?.(email.deviceName!)}
+          className="w-full py-4 rounded-xl font-bold text-[#0B0C10] text-sm tracking-wider bg-[#00F5D4] hover:bg-[#33ffd8] active:scale-95 transition-all duration-200"
+        >
+          ✓ 이 기기를 신뢰 기기로 등록
+        </button>
+      )}
 
       <button
         id="block-threat-email-btn"
@@ -410,12 +486,18 @@ const PreLoginScreen: React.FC<PreLoginScreenProps> = ({ onGoogleLogin }) => (
 
 const SecurityPage: React.FC = () => {
   const { authToken } = useLogBox();
+  const location = useLocation();
+  const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const queryId = queryParams.get('id');
 
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(!!authToken);
+  const gmailToken = localStorage.getItem('gmail_token');
+  const isLoggedIn = !!authToken || !!gmailToken;
+
   const [isNaverConnected, setIsNaverConnected] = useState<boolean>(false);
   const [isNaverLoading, setIsNaverLoading] = useState<boolean>(false);
-  const [emails, setEmails] = useState<Email[]>(INITIAL_EMAILS);
+  const [emails, setEmails] = useState<Email[]>([]);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // 커스텀 토스트 상태
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -433,8 +515,51 @@ const SecurityPage: React.FC = () => {
     }, 3000);
   }, []);
 
+  useEffect(() => {
+    if (gmailToken) {
+      setIsLoading(true);
+      fetchSecurityEmails(gmailToken)
+        .then((records) => {
+          const mapped: Email[] = records.map((r) => {
+            let platform: 'naver' | 'google' | 'other' = 'other';
+            if (r.platform === 'naver') platform = 'naver';
+            else if (r.platform === 'google') platform = 'google';
+
+            return {
+              id: r.id,
+              from: r.from || 'support@google.com',
+              subject: r.subject || '보안 알림',
+              timeAgo: r.timeISO ? formatRelativeTime(r.timeISO) : '방금 전',
+              riskScore: threatLevelToRiskScore(r.threatLevel),
+              body: r.body || '',
+              platform,
+              deviceName: r.device?.name,
+            };
+          });
+          setEmails(mapped);
+          
+          if (queryId) {
+            const hasMatch = mapped.some((e) => e.id === queryId);
+            if (hasMatch) {
+              setSelectedEmailId(queryId);
+            }
+          }
+        })
+        .catch((err) => console.error(err))
+        .finally(() => setIsLoading(false));
+    } else {
+      setEmails(INITIAL_EMAILS);
+      if (queryId) {
+        const hasMatch = INITIAL_EMAILS.some((e) => e.id === queryId);
+        if (hasMatch) {
+          setSelectedEmailId(queryId);
+        }
+      }
+    }
+  }, [gmailToken, queryId]);
+
   const handleGoogleLogin = useCallback(() => {
-    setIsLoggedIn(true);
+    window.location.reload();
   }, []);
 
   const handleNaverConnect = useCallback(() => {
@@ -445,7 +570,9 @@ const SecurityPage: React.FC = () => {
     setTimeout(() => {
       setIsNaverLoading(false);
       setIsNaverConnected(true);
-      setEmails((prev) => [NAVER_PHISHING_EMAIL, ...prev]);
+      if (!gmailToken) {
+        setEmails((prev) => [NAVER_PHISHING_EMAIL, ...prev]);
+      }
 
       showToast("네이버 계정 연동에 성공했습니다.", "success");
 
@@ -453,7 +580,7 @@ const SecurityPage: React.FC = () => {
         emailListRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       }, 100);
     }, 1000);
-  }, [isNaverConnected, isNaverLoading, showToast]);
+  }, [isNaverConnected, isNaverLoading, showToast, gmailToken]);
 
   const handleAnalyze = useCallback((emailId: string) => {
     setSelectedEmailId(emailId);
@@ -471,6 +598,13 @@ const SecurityPage: React.FC = () => {
     setSelectedEmailId(null);
     showToast("해당 위협 메일 발신처가 즉시 차단되고 영구 격리 공간으로 이동되었습니다.", "success");
   }, [selectedEmailId, showToast]);
+
+  const handleTrustDevice = useCallback((deviceName: string) => {
+    addTrustedDeviceName(deviceName);
+    showToast(`"${deviceName}"이(가) 신뢰 기기로 등록되었습니다.`, "success");
+    // Trigger re-render to update trusted status in card
+    setEmails((prev) => [...prev]);
+  }, [showToast]);
 
   if (!isLoggedIn) {
     return (
@@ -530,15 +664,25 @@ const SecurityPage: React.FC = () => {
 
       {/* ── 메일 목록 ── */}
       <div ref={emailListRef} className="space-y-3">
-        {emails.map((email) => (
-          <EmailRow
-            key={email.id}
-            email={email}
-            onAnalyze={handleAnalyze}
-            isNew={email.platform === 'naver' && isNaverConnected}
-            isActive={email.id === selectedEmailId}
-          />
-        ))}
+        {isLoading ? (
+          Array.from({ length: 3 }, (_, index) => (
+            <div key={index} className="h-24 rounded-2xl bg-[#121318] animate-pulse border border-white/10" />
+          ))
+        ) : emails.length === 0 ? (
+          <div className="text-center py-12 text-slate-500 text-sm font-mono border border-white/10 rounded-2xl bg-[#121318]">
+            표시할 보안 관련 메일이 없습니다.
+          </div>
+        ) : (
+          emails.map((email) => (
+            <EmailRow
+              key={email.id}
+              email={email}
+              onAnalyze={handleAnalyze}
+              isNew={email.platform === 'naver' && isNaverConnected}
+              isActive={email.id === selectedEmailId}
+            />
+          ))
+        )}
       </div>
 
       {/* ── 선택된 메일의 정밀 분석 카드 (목록 아래에 배치) ── */}
@@ -547,6 +691,7 @@ const SecurityPage: React.FC = () => {
           email={selectedEmail}
           onBack={handleBackToList}
           onBlockClick={handleBlockEmail}
+          onTrustClick={handleTrustDevice}
         />
       )}
 
@@ -566,6 +711,7 @@ const SecurityPage: React.FC = () => {
     </div>
   );
 };
+
 
 // =============================================================================
 // ⑧ 전역 애니메이션 스타일 주입

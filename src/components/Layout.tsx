@@ -5,7 +5,7 @@ type Tab = { to: string; label: string; icon: string; end?: boolean; ariaLabel?:
 
 const tabs: Tab[] = [
   { to: '/',         label: '홈',  icon: 'home',     end: true },
-  { to: '/security', label: '보안', icon: 'shield',   ariaLabel: 'LogBox 메일센터' },
+  { to: '/security', label: '보안 위협', icon: 'shield',   ariaLabel: '메일 피싱/보안 위협' },
   { to: '/base',     label: '거점', icon: 'devices',  ariaLabel: '거점 기기 관리' },
   { to: '/settings', label: '설정', icon: 'settings' },
 ];

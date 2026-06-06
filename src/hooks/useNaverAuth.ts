@@ -4,7 +4,8 @@
 // ──────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback } from 'react';
-import { NAVER_OAUTH_CONFIG, NAVER_STORAGE_KEYS } from '../config/authConfig';
+import { NAVER_OAUTH_CONFIG, NAVER_STORAGE_KEYS, generateOAuthState } from '../config/authConfig';
+import { loadDecryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
 export function useNaverAuth() {
   const [isNaverConnected, setIsNaverConnected] = useState<boolean>(false);
@@ -13,8 +14,8 @@ export function useNaverAuth() {
 
   // 컴포넌트 마운트 및 활성화 시 로컬 스토리지 데이터 동기화
   useEffect(() => {
-    const connected = localStorage.getItem(NAVER_STORAGE_KEYS.connected) === 'true';
-    const email = localStorage.getItem(NAVER_STORAGE_KEYS.email) ?? null;
+    const connected = loadDecryptedSync<boolean>(NAVER_STORAGE_KEYS.connected, STORAGE_PASS) === true;
+    const email = loadDecryptedSync<string>(NAVER_STORAGE_KEYS.email, STORAGE_PASS);
 
     setIsNaverConnected(connected);
     setNaverEmail(connected ? email : null);
@@ -24,13 +25,12 @@ export function useNaverAuth() {
   const connectNaver = useCallback(() => {
     const clientId = NAVER_OAUTH_CONFIG.CLIENT_ID;
     const redirectUri = encodeURIComponent(NAVER_OAUTH_CONFIG.CALLBACK_URL);
-    const state = encodeURIComponent(NAVER_OAUTH_CONFIG.STATE);
+    const state = encodeURIComponent(generateOAuthState());
     
     const authUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
 
     window.location.href = authUrl;
   }, []);
-
   // 네이버 연동 해제
   const disconnectNaver = useCallback(async () => {
     if (naverDisconnecting) return;

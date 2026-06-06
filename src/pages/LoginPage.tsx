@@ -9,6 +9,7 @@ import {
 } from '../config/googleAuth';
 import GoogleLoginButton from '../components/GoogleLoginButton';
 import { DEMO_ACCESS_TOKEN } from '../utils/recordUtils';
+import { loadDecryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ const LoginPage: React.FC = () => {
   const handleGoogleSuccess = () => {
     setIsLoadingScreen(true);
     setTimeout(() => {
-      const onboardingSeen = localStorage.getItem('onboardingSeen') === 'true';
+      const onboardingSeen = loadDecryptedSync<boolean>('onboardingSeen', STORAGE_PASS) === true;
       if (onboardingSeen) {
         navigate('/', { replace: true });
       } else {
@@ -41,7 +42,7 @@ const LoginPage: React.FC = () => {
     await setToken(token);
     setIsLoadingScreen(true);
     setTimeout(() => {
-      const onboardingSeen = localStorage.getItem('onboardingSeen') === 'true';
+      const onboardingSeen = loadDecryptedSync<boolean>('onboardingSeen', STORAGE_PASS) === true;
       if (onboardingSeen) {
         navigate('/', { replace: true });
       } else {

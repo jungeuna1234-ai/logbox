@@ -1,12 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLogBox } from '../context/LogBoxContext';
-import { mapThreatToVelocity } from '../utils/recordUtils';
+import { mapThreatToVelocity, isPhishingThreat } from '../utils/recordUtils';
 import { ThreatLevel } from '../utils/geoUtils';
 import { LogBoxRecord } from '../types/index';
 import { fetchSecurityEmails } from '../services/gmailService';
-import { enrichThreatLevels } from '../utils/enrichRecords';
 import { isDeviceTrusted } from '../utils/deviceUtils';
+import { loadDecryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
 const parsePlatform = (text?: string): string => {
   const raw = (text || '').toLowerCase();
@@ -17,16 +17,35 @@ const parsePlatform = (text?: string): string => {
   if (raw.includes('discord')) return 'discord';
   if (raw.includes('netflix')) return 'netflix';
   if (raw.includes('steam')) return 'steam';
+  if (raw.includes('facebook')) return 'facebook';
+  if (raw.includes('pinterest')) return 'pinterest';
+  if (raw.includes('lilys')) return 'lilys';
+  if (raw.includes('github') || raw.includes('깃허브')) return 'github';
+  if (raw.includes('openai') || raw.includes('chatgpt')) return 'openai';
+  if (raw.includes('tryhackme')) return 'tryhackme';
+  if (raw.includes('mangoboard') || raw.includes('망고보드')) return 'mangoboard';
+  if (raw.includes('cursor')) return 'cursor';
   return 'unknown';
 };
 
 const parseRoute = (rawText?: string) => {
   const text = rawText || '';
-  const match = text.match(/([^\s·[\]]+)\s*(?:→|->)\s*([^\s·[\]]+)/);
-  if (match) {
+  const parts = text.split(/[·•]/);
+  if (parts.length >= 2) {
+    const routePart = parts[1].trim();
+    const arrowParts = routePart.split(/→|->/);
+    if (arrowParts.length >= 2) {
+      return {
+        origin: arrowParts[0].trim(),
+        destination: arrowParts[1].trim(),
+      };
+    }
+  }
+  const arrowParts = text.split(/→|->/);
+  if (arrowParts.length >= 2) {
     return {
-      origin: match[1].trim(),
-      destination: match[2].trim(),
+      origin: arrowParts[0].trim(),
+      destination: arrowParts[1].trim(),
     };
   }
   return {
@@ -50,62 +69,32 @@ const DashboardPage: React.FC = () => {
   } = useLogBox();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [localLogs, setLocalLogs] = useState<LogBoxRecord[]>([]);
-  const [localLoading, setLocalLoading] = useState<boolean>(false);
 
-  const gmailToken = localStorage.getItem('gmail_token');
+  const gmailToken = loadDecryptedSync<string>('gmail_token', STORAGE_PASS);
   const isGoogleConnected = contextIsGoogleConnected || !!gmailToken;
-
-  const fetchLocalGmail = async (token: string) => {
-    setLocalLoading(true);
-    try {
-      const fetched = await fetchSecurityEmails(token);
-      const enriched = enrichThreatLevels(fetched);
-      setLocalLogs(enriched);
-    } catch (err) {
-      console.error('[DashboardPage] Failed to fetch security emails:', err);
-    } finally {
-      setLocalLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (gmailToken) {
-      void fetchLocalGmail(gmailToken);
-    }
-  }, [gmailToken]);
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
     setIsRefreshing(true);
     try {
-      if (gmailToken) {
-        await fetchLocalGmail(gmailToken);
-      } else {
-        await syncGmail();
-      }
+      await syncGmail();
     } finally {
       setTimeout(() => setIsRefreshing(false), 1000);
     }
   };
 
-  const isCurrentlyLoading = isLoading || isRefreshing || localLoading;
+  const isCurrentlyLoading = isLoading || isRefreshing;
 
-  const displayLogs = useMemo(() => {
-    return gmailToken ? localLogs : logs;
-  }, [gmailToken, localLogs, logs]);
+  const displayLogs = logs;
 
   const recentLogs = useMemo(
-    () => [...displayLogs].sort((a, b) => (b.timeISO ?? '').localeCompare(a.timeISO ?? '')).slice(0, 4),
+    () => [...displayLogs]
+      .filter((record) => !isPhishingThreat(record))
+      .sort((a, b) => (b.timeISO ?? '').localeCompare(a.timeISO ?? '')),
     [displayLogs],
   );
 
-  const isThreatDetected = useMemo(() => {
-    return displayLogs.some((record) => {
-      if (isDeviceTrusted(record.device?.name)) return false;
-      return (record.threatLevel ?? 0) >= ThreatLevel.Critical;
-    });
-  }, [displayLogs]);
+  const isThreatDetected = false;
 
   const attackRecord = recentLogs.find((record) => (record.threatLevel ?? 0) >= ThreatLevel.Critical) ?? recentLogs[0];
   
@@ -204,14 +193,14 @@ const DashboardPage: React.FC = () => {
                   </span>
                 </div>
                 <h2 className="text-xl text-[#00F5D4] font-bold tracking-widest font-mono">
-                  {isCurrentlyLoading ? '메일 검사 중...' : '내 계정 안전함'}
+                  {isCurrentlyLoading ? '메일함 동기화 중...' : '실시간 동기화 안전함'}
                 </h2>
               </div>
             </div>
             <div className="mt-6 flex items-center gap-2.5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#00F5D4] animate-ping" />
               <p className="text-xs text-slate-400 uppercase tracking-widest font-mono">
-                {isCurrentlyLoading ? '실시간 접근 신호 분석 중...' : '연결된 이메일 검사 완료'}
+                {isCurrentlyLoading ? '실시간 수신 상태 동기화 중...' : '연결된 메일함 동기화 100%'}
               </p>
             </div>
           </section>
@@ -273,8 +262,8 @@ const DashboardPage: React.FC = () => {
 
         {/* Recent logs */}
         <section className="animate-[fadeIn_0.4s_ease-out] space-y-4">
-          <h4 className="text-xs text-slate-500 font-bold uppercase tracking-widest font-mono">최근 로그</h4>
-          <ul className="space-y-3" aria-label="최근 보안 로그">
+          <h4 className="text-xs text-slate-500 font-bold uppercase tracking-widest font-mono">최근 수신 메일 동기화 타임라인</h4>
+          <ul className="space-y-3" aria-label="최근 메일 동기화 타임라인">
             {isCurrentlyLoading ? (
               Array.from({ length: 3 }, (_, index) => (
                 <li key={index} className="h-24 rounded-2xl bg-[#121318] animate-pulse border border-white/10" />
@@ -316,7 +305,7 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
   let badgeBg = 'bg-[#181920]';
   let badgeBorder = 'border-white/10';
   let badgeText = 'text-slate-400';
-  let badgeChar: React.ReactNode = '🔒';
+  let badgeChar: React.ReactNode = '✉️'; // Default normal mail icon instead of lock icon for safe emails
   
   if (platform === 'google') {
     badgeBg = 'bg-[#FF2E63]/10';
@@ -353,6 +342,46 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
     badgeBorder = 'border-sky-500/20';
     badgeText = 'text-sky-400';
     badgeChar = 'S';
+  } else if (platform === 'facebook') {
+    badgeBg = 'bg-blue-600/10';
+    badgeBorder = 'border-blue-600/20';
+    badgeText = 'text-blue-500';
+    badgeChar = 'F';
+  } else if (platform === 'pinterest') {
+    badgeBg = 'bg-red-700/10';
+    badgeBorder = 'border-red-700/20';
+    badgeText = 'text-red-600';
+    badgeChar = 'P';
+  } else if (platform === 'lilys') {
+    badgeBg = 'bg-teal-500/10';
+    badgeBorder = 'border-teal-500/20';
+    badgeText = 'text-teal-400';
+    badgeChar = 'L';
+  } else if (platform === 'github') {
+    badgeBg = 'bg-[#24292e]/20';
+    badgeBorder = 'border-white/10';
+    badgeText = 'text-white';
+    badgeChar = 'G';
+  } else if (platform === 'openai') {
+    badgeBg = 'bg-[#10a37f]/10';
+    badgeBorder = 'border-[#10a37f]/20';
+    badgeText = 'text-[#10a37f]';
+    badgeChar = 'O';
+  } else if (platform === 'tryhackme') {
+    badgeBg = 'bg-[#de1135]/10';
+    badgeBorder = 'border-[#de1135]/20';
+    badgeText = 'text-[#de1135]';
+    badgeChar = 'T';
+  } else if (platform === 'mangoboard') {
+    badgeBg = 'bg-[#ff9c00]/10';
+    badgeBorder = 'border-[#ff9c00]/20';
+    badgeText = 'text-[#ff9c00]';
+    badgeChar = 'M';
+  } else if (platform === 'cursor') {
+    badgeBg = 'bg-slate-700/10';
+    badgeBorder = 'border-slate-500/20';
+    badgeText = 'text-white';
+    badgeChar = 'C';
   }
 
   const formatTimeLine = (iso?: string) => {
@@ -364,37 +393,26 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
     }
   };
 
-  const rowStatusBadge = (threatLevel?: number): React.ReactNode => {
-    if (isDeviceTrusted(record.device?.name)) {
-      return (
-        <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#00F5D4] bg-[#00F5D4]/15 border border-[#00F5D4]/20">
-          신뢰 기기
-        </span>
-      );
-    }
-    if (threatLevel === undefined) {
-      return <span className="text-xs px-2.5 py-1 rounded-full text-slate-500 bg-[#181920] border border-white/10">알 수 없음</span>;
-    }
-    if (threatLevel >= ThreatLevel.Critical) {
-      return <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#FF2E63] bg-[#FF2E63]/15 border border-[#FF2E63]/20">위협</span>;
-    }
-    if (threatLevel >= ThreatLevel.High) {
-      return <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-orange-400 bg-orange-400/15 border border-orange-400/20">주의</span>;
-    }
-    const kmh = mapThreatToVelocity(threatLevel);
+  const rowStatusBadge = (): React.ReactNode => {
     return (
-      <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#00F5D4] bg-[#00F5D4]/15 border border-[#00F5D4]/20">{kmh} km/h</span>
+      <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#00F5D4] bg-[#00F5D4]/15 border border-[#00F5D4]/20">
+        정상 수신
+      </span>
     );
   };
+
+  const route = parseRoute(record.raw);
+  const rawParts = (record.raw || '').split(' · ');
+  const serviceTitle = rawParts[0] || record.device?.name || rawText || '보안 로그';
+
+  const deviceEnv = record.device?.name || '알 수 없는 기기';
+  const realIp = record.ip || '확인되지 않음';
+  const city = record.device?.location || '알 수 없음';
+  const displaySubtext = `${deviceEnv} · ${realIp} (${city})`;
 
   const handleClick = () => {
     navigate(`/warp-analysis?id=${record.id}`, { state: { logData: record } });
   };
-
-  const route = parseRoute(record.raw);
-  const displayName = route.origin !== '알 수 없음' && route.destination !== '알 수 없음'
-    ? `${route.origin} → ${route.destination}`
-    : (record.device?.name || rawText || '알 수 없는 경로');
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -410,20 +428,41 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
         onKeyDown={handleKeyDown}
         role="button"
         tabIndex={0}
-        aria-label={`${displayName} 보안 로그 상세 보기`}
+        aria-label={`${serviceTitle} - ${displaySubtext} 상세 보기`}
         className="group cursor-pointer flex items-center justify-between p-4 bg-[#121318] rounded-2xl border border-white/10 hover:border-white/20 hover:bg-[#181920] active:scale-[0.98] transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-white/20"
       >
         <div className="flex items-center gap-4 min-w-0">
           <div className={`w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border group-hover:scale-105 transition-transform duration-200 ${badgeBg} ${badgeBorder} ${badgeText} font-bold text-base`}>
             {badgeChar}
           </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-white truncate">{displayName}</div>
-            <div className="text-xs text-[#94A3B8] mt-1" title={record.timeISO}>{formatTimeLine(record.timeISO)}</div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-white truncate">{serviceTitle}</div>
+            <div className="text-xs text-[#94A3B8] mt-1" title={record.timeISO}>
+              {formatTimeLine(record.timeISO)} · {displaySubtext}
+            </div>
+            {record.from && (
+              <div className="text-[11px] text-slate-400 mt-1 truncate">
+                발신: <span className="font-mono text-slate-300">{record.from}</span>
+              </div>
+            )}
+            {record.domain && (
+              <div className="text-[10px] text-[#00F5D4] font-mono mt-0.5 truncate">
+                링크:{' '}
+                <a
+                  href={`https://${record.domain}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline text-[#00F5D4] cursor-pointer font-bold"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {record.domain}
+                </a>
+              </div>
+            )}
           </div>
         </div>
         <div className="shrink-0 ml-2 flex items-center gap-2">
-          {rowStatusBadge(record.threatLevel)}
+          {rowStatusBadge()}
           <span className="material-symbols-outlined text-slate-600 group-hover:text-[#FF2E63] text-base transition-colors" style={{ fontVariationSettings: "'FILL' 0" }}>chevron_right</span>
         </div>
       </div>

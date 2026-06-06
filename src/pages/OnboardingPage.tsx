@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { saveEncryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
 const OnboardingPage: React.FC = () => {
   const [activeStep, setActiveStep] = useState<number>(0);
@@ -18,7 +19,7 @@ const OnboardingPage: React.FC = () => {
   };
 
   const handleStart = () => {
-    localStorage.setItem('onboardingSeen', 'true');
+    saveEncryptedSync('onboardingSeen', true, STORAGE_PASS);
     navigate('/', { replace: true });
   };
 

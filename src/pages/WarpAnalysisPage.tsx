@@ -4,21 +4,22 @@ import { InfoCell } from '../components/InfoCell';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLogBox } from '../context/LogBoxContext';
 import { LogBoxRecord } from '../types/index';
-import { fetchSecurityEmails } from '../services/gmailService';
-import { enrichThreatLevels } from '../utils/enrichRecords';
 import { isDeviceTrusted, addTrustedDeviceName } from '../utils/deviceUtils';
+import { loadDecryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
-const simulateApiCall = async (_url: string, _data?: any): Promise<void> => {
-  return new Promise<void>((resolve, reject) => {
-    setTimeout(() => {
-      const isSuccess = Math.random() > 0.15;
-      if (isSuccess) {
-        resolve();
-      } else {
-        reject(new Error("Network Error 500 (Internal Server Error)"));
-      }
-    }, 1200);
+const simulateApiCall = async (url: string, data?: unknown): Promise<void> => {
+  const token = loadDecryptedSync<string>('gmail_token', STORAGE_PASS) || 'demo-token';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(data)
   });
+  if (!response.ok) {
+    throw new Error(`Network Error ${response.status}`);
+  }
 };
 
 interface RouteProps {
@@ -123,43 +124,112 @@ const ActionModal: React.FC<ActionModalProps> = ({
   );
 };
 
-// SVG 세계 지도의 가상 2D 좌표 리턴 헬퍼
-const getCoordsForLocation = (name: string): [number, number] => {
-  const norm = (name || '').toLowerCase();
-  
-  if (norm.includes('러시아') || norm.includes('russia') || norm.includes('moscow') || norm.includes('모스크바')) {
-    return [420, 110];
+// 실제 지구 위경도 좌표 사전 (도시명 -> [latitude, longitude])
+const CITY_GEO_DICT: Record<string, [number, number]> = {
+  '서울': [37.5665, 126.9780],
+  'seoul': [37.5665, 126.9780],
+  '한국': [37.5665, 126.9780],
+  'korea': [37.5665, 126.9780],
+  '부산': [35.1796, 129.0756],
+  'busan': [35.1796, 129.0756],
+  '인천': [37.4563, 126.7052],
+  'incheon': [37.4563, 126.7052],
+  '러시아': [55.7558, 37.6173],
+  'russia': [55.7558, 37.6173],
+  '모스크바': [55.7558, 37.6173],
+  'moscow': [55.7558, 37.6173],
+  '미국': [40.7128, -74.0060],
+  'usa': [40.7128, -74.0060],
+  '뉴욕': [40.7128, -74.0060],
+  'new york': [40.7128, -74.0060],
+  'la': [34.0522, -118.2437],
+  'los angeles': [34.0522, -118.2437],
+  '샌프란시스코': [37.7749, -122.4194],
+  'san francisco': [37.7749, -122.4194],
+  '독일': [52.5200, 13.4050],
+  'germany': [52.5200, 13.4050],
+  '베를린': [52.5200, 13.4050],
+  'berlin': [52.5200, 13.4050],
+  '중국': [39.9042, 116.4074],
+  'china': [39.9042, 116.4074],
+  '베이징': [39.9042, 116.4074],
+  'beijing': [39.9042, 116.4074],
+  '싱가포르': [1.3521, 103.8198],
+  'singapore': [1.3521, 103.8198],
+  '호주': [-33.8688, 151.2093],
+  'australia': [-33.8688, 151.2093],
+  '시드니': [-33.8688, 151.2093],
+  'sydney': [-33.8688, 151.2093],
+  '일본': [35.6762, 139.6503],
+  'japan': [35.6762, 139.6503],
+  '도쿄': [35.6762, 139.6503],
+  'tokyo': [35.6762, 139.6503],
+  '런던': [51.5074, -0.1278],
+  'london': [51.5074, -0.1278],
+  '로스앤젤레스': [34.0522, -118.2437],
+  '시애틀': [47.6062, -122.3321],
+  'seattle': [47.6062, -122.3321],
+  '미국 오레곤 aws 리전': [44.0, -120.5],
+  '서울 aws 리전': [37.5665, 126.9780],
+  '오레곤': [44.0, -120.5],
+};
+
+// 위도/경도명 검색용 헬퍼
+export const getGeoForLocationName = (name: string): [number, number] => {
+  const norm = (name || '').toLowerCase().trim();
+  for (const [key, coords] of Object.entries(CITY_GEO_DICT)) {
+    if (norm.includes(key)) {
+      return coords;
+    }
   }
-  if (norm.includes('부산') || norm.includes('busan')) {
-    return [690, 175];
+  return [55.7558, 37.6173]; // 기본값: 러시아 모스크바
+};
+
+// 공식 서버 및 미조회 IP에 대한 이메일 도메인 분석 기반 Fallback Dictionary
+interface FallbackRegionInfo {
+  regionName: string;
+  coords: [number, number];
+}
+
+const SERVER_REGION_DICTIONARY: Record<string, FallbackRegionInfo> = {
+  'cursor': { regionName: '미국 오레곤 AWS 리전', coords: [44.0, -120.5] },
+  'github': { regionName: '미국 오레곤 AWS 리전', coords: [44.0, -120.5] },
+  'google': { regionName: '미국 오레곤 AWS 리전', coords: [44.0, -120.5] },
+  'openai': { regionName: '미국 오레곤 AWS 리전', coords: [44.0, -120.5] },
+  'mangoboard': { regionName: '서울 AWS 리전', coords: [37.5665, 126.9780] },
+  'naver': { regionName: '서울 AWS 리전', coords: [37.5665, 126.9780] },
+  'kakao': { regionName: '서울 AWS 리전', coords: [37.5665, 126.9780] },
+};
+
+export const getFallbackRegion = (record: LogBoxRecord): FallbackRegionInfo => {
+  const domain = (record?.domain || '').toLowerCase().trim();
+  const platform = (record?.platform || '').toLowerCase().trim();
+  const from = (record?.from || '').toLowerCase().trim();
+
+  const keys = ['cursor', 'github', 'openai', 'google', 'mangoboard', 'naver', 'kakao'];
+  for (const key of keys) {
+    if (domain.includes(key) || platform.includes(key) || from.includes(key)) {
+      return SERVER_REGION_DICTIONARY[key];
+    }
   }
-  if (norm.includes('서울') || norm.includes('seoul') || norm.includes('한국') || norm.includes('korea')) {
-    return [675, 160];
+
+  // IP가 54.240.27.23 인 경우 AWS SES 리전이므로 미국 오레곤 AWS 리전으로 폴백
+  if (record?.ip === '54.240.27.23') {
+    return { regionName: '미국 오레곤 AWS 리전', coords: [44.0, -120.5] };
   }
-  if (norm.includes('미국') || norm.includes('usa') || norm.includes('new york') || norm.includes('뉴욕')) {
-    return [160, 130];
-  }
-  if (norm.includes('la') || norm.includes('los angeles') || norm.includes('샌프란시스코')) {
-    return [110, 155];
-  }
-  if (norm.includes('독일') || norm.includes('germany') || norm.includes('berlin') || norm.includes('베를린') || norm.includes('유럽')) {
-    return [375, 120];
-  }
-  if (norm.includes('중국') || norm.includes('china') || norm.includes('beijing') || norm.includes('베이징')) {
-    return [620, 145];
-  }
-  if (norm.includes('싱가포르') || norm.includes('singapore')) {
-    return [605, 245];
-  }
-  if (norm.includes('호주') || norm.includes('australia') || norm.includes('sydney') || norm.includes('시드니')) {
-    return [710, 335];
-  }
-  if (norm.includes('일본') || norm.includes('japan') || norm.includes('tokyo') || norm.includes('도쿄')) {
-    return [705, 155];
-  }
-  
-  // 기본 좌표: 모스크바(러시아)
-  return [420, 110];
+
+  return { regionName: '미국 오레곤 AWS 리전', coords: [44.0, -120.5] };
+};
+
+// 실제 지구 위경도를 평면 SVG 픽셀(X: 0~800, Y: 0~360)로 동적 변환
+export const convertGeoToPixel = (lat: number, lng: number): [number, number] => {
+  const safeLat = typeof lat === 'number' && !isNaN(lat) ? Math.max(-90, Math.min(90, lat)) : 37.5665;
+  const safeLng = typeof lng === 'number' && !isNaN(lng) ? Math.max(-180, Math.min(180, lng)) : 126.9780;
+  // 경도(-180 ~ 180) -> X(0 ~ 800)
+  const x = ((safeLng + 180) / 360) * 800;
+  // 위도(-90 ~ 90) -> Y(360 ~ 0) (위도가 클수록 지도 상단이므로 90 - lat을 씀)
+  const y = ((90 - safeLat) / 180) * 360;
+  return [x, y];
 };
 
 function getPlatformSecurityUrls(platform?: string): { passwordUrl: string; logoutUrl: string } {
@@ -218,27 +288,16 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
   const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const queryId = queryParams.get('id');
 
-  const [localLogs, setLocalLogs] = useState<LogBoxRecord[]>([]);
   const [trustUpdateTrigger, setTrustUpdateTrigger] = useState(0);
 
-  useEffect(() => {
-    const gmailToken = localStorage.getItem('gmail_token');
-    if (gmailToken) {
-      fetchSecurityEmails(gmailToken)
-        .then((fetched) => {
-          setLocalLogs(enrichThreatLevels(fetched));
-        })
-        .catch((e) => console.error('[WarpAnalysisPage] Failed to fetch security emails:', e));
-    }
-  }, []);
-
   const matchedRecord = useMemo(() => {
-    if (locationState?.logData) return locationState.logData;
-    if (queryId) {
-      return logBoxContext.logs.find((r) => r.id === queryId) || localLogs.find((r) => r.id === queryId) || null;
+    const targetId = queryId || locationState?.logData?.id;
+    if (targetId) {
+      const found = logBoxContext.logs.find((r) => r.id === targetId);
+      if (found) return found;
     }
     return null;
-  }, [locationState, queryId, logBoxContext.logs, localLogs]);
+  }, [locationState, queryId, logBoxContext.logs]);
 
   const incoming = propsIncoming ?? matchedRecord ?? logBoxContext.logs[0];
 
@@ -259,16 +318,69 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
   // route 파싱
   const parsedRoute = useMemo(() => {
     const rawText = incoming?.raw ?? '';
-    const match = rawText.match(/([^\s·[\]]+)\s*(?:→|->)\s*([^\s·[\]]+)/);
-    if (match) return { origin: match[1].trim(), destination: match[2].trim() };
-    return { origin: '러시아', destination: '부산' }; // 기본 테스트 시 데모용 기본값 제공
-  }, [incoming?.raw]);
+    const parts = rawText.split(/[·•]/);
+    let origin = '알 수 없음';
+    let destination = '부산';
+
+    if (parts.length >= 2) {
+      const routePart = parts[1].trim();
+      const arrowParts = routePart.split(/→|->/);
+      if (arrowParts.length >= 2) {
+        origin = arrowParts[0].trim();
+        destination = arrowParts[1].trim();
+      }
+    } else {
+      const arrowParts = rawText.split(/→|->/);
+      if (arrowParts.length >= 2) {
+        origin = arrowParts[0].trim();
+        destination = arrowParts[1].trim();
+      }
+    }
+
+    // "알 수 없음" 이거나 공식 서버(isServerVerified === true)인 경우 사전 매핑 적용
+    if (incoming?.isServerVerified || origin === '알 수 없음') {
+      const fallback = getFallbackRegion(incoming);
+      origin = fallback.regionName;
+    }
+
+    return {
+      origin,
+      destination,
+    };
+  }, [incoming]);
 
   const route = propsRoute ?? parsedRoute;
 
-  // 동적 지도 앵커 설정
-  const originCoords = useMemo(() => getCoordsForLocation(route.origin), [route.origin]);
-  const destCoords = useMemo(() => getCoordsForLocation(route.destination), [route.destination]);
+  // 동적 지도 위경도 설정
+  const originLatLon = useMemo(() => {
+    // 1. 위경도가 유효하게 존재하고, "알 수 없음"이나 "AWS 리전"이 아닌 일반 위경도 값인 경우 사용
+    if (incoming && incoming.latitude !== undefined && incoming.longitude !== undefined && incoming.latitude !== 0 && incoming.longitude !== 0) {
+      return [incoming.latitude, incoming.longitude] as [number, number];
+    }
+    
+    // 2. 도메인 분석 기반 폴백 정보 획득
+    const fallback = getFallbackRegion(incoming);
+
+    // 3. route.origin 명칭으로 매핑된 좌표 검색
+    const matchedCoords = getGeoForLocationName(route.origin);
+    if (route.origin === fallback.regionName) {
+      return fallback.coords;
+    }
+
+    const hasKey = Object.keys(CITY_GEO_DICT).some(k => route.origin.toLowerCase().includes(k));
+    if (!hasKey) {
+      return fallback.coords;
+    }
+
+    return matchedCoords;
+  }, [incoming, route.origin]);
+
+  const destLatLon = useMemo(() => {
+    return getGeoForLocationName(route.destination);
+  }, [route.destination]);
+
+  const originCoords = useMemo(() => convertGeoToPixel(originLatLon[0], originLatLon[1]), [originLatLon]);
+  const destCoords = useMemo(() => convertGeoToPixel(destLatLon[0], destLatLon[1]), [destLatLon]);
 
   // bezier control point 계산
   const pathD = useMemo(() => {
@@ -335,6 +447,9 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
   const routeLabel = route.origin !== '알 수 없음' && route.destination !== '알 수 없음'
     ? `${route.origin} → ${route.destination}`
     : '러시아 → 부산 (확인되지 않은 접근)';
+
+  const rawParts = (incoming?.raw || '').split(' · ');
+  const serviceTitle = rawParts[0] || incoming?.device?.name || '보안 로그';
 
   const displayTime = useMemo(() => {
     if (!incoming.timeISO) return '알 수 없음';
@@ -449,6 +564,24 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
         <span className="text-xs font-bold tracking-wider text-[#FF2E63]">실시간 위협 분석 센터</span>
       </header>
 
+      {incoming.ip === '플랫폼 미제공' && !incoming.isServerVerified && (
+        <div className="w-full bg-orange-500/10 border border-orange-500/20 text-orange-400 p-4.5 rounded-2xl flex items-start gap-3 animate-fade-in text-left">
+          <span className="material-symbols-outlined text-orange-500 text-lg shrink-0 mt-0.5">warning</span>
+          <p className="text-xs leading-relaxed font-semibold">
+            ⚠️ 해당 플랫폼은 보안 알림 내에 로그인 IP 정보를 제공하지 않는 취약한 상태입니다. 피싱 및 도용 방지를 위해 반드시 공식 앱 설정에서 2차 인증(2FA)을 활성화하세요.
+          </p>
+        </div>
+      )}
+
+      {incoming.isServerVerified && (
+        <div className="w-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4.5 rounded-2xl flex items-start gap-3 animate-fade-in text-left">
+          <span className="material-symbols-outlined text-emerald-500 text-lg shrink-0 mt-0.5">verified</span>
+          <p className="text-xs leading-relaxed font-semibold">
+            🟢 <strong>공식 서버 인증 완료:</strong> 본 메일은 공식 발신 서버({incoming.ip})를 거쳐 정상 발송된 메일임이 검증되었습니다. 위조 또는 스포핑 위협이 없으며 해당 서비스의 정식 경로를 통한 안내 메일입니다.
+          </p>
+        </div>
+      )}
+
       {/* 세계 지도 UI 풀스크린(Full-width) 패널 */}
       <div className="w-full flex flex-col gap-6">
         <div className="relative bg-[#121318] border border-white/10 rounded-2xl p-6 flex flex-col justify-between overflow-hidden min-h-[400px] lg:min-h-[550px] shadow-xl">
@@ -456,115 +589,160 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
           {/* 상단 메타 헤더 */}
           <div className="flex justify-between items-start z-10">
             <div>
-              <span className="text-[10px] font-mono tracking-widest text-[#FF2E63] uppercase">글로벌 해킹 위치 추적 지도</span>
-              <h3 className="text-base font-bold mt-1 tracking-wide">실시간 해커 접속 경로</h3>
+              <span className="text-[10px] font-mono tracking-widest uppercase" style={{ color: incoming.isServerVerified ? '#00F5D4' : (incoming.ip === '플랫폼 미제공' ? '#f97316' : '#FF2E63') }}>
+                {incoming.isServerVerified ? '공식 발신 서버 위치 분석' : (incoming.ip === '플랫폼 미제공' ? '위치 정보 추적 불가' : '글로벌 해킹 위치 추적 지도')}
+              </span>
+              <h3 className="text-base font-bold mt-1 tracking-wide">
+                {incoming.isServerVerified ? '공식 발신처 서버 경로' : (incoming.ip === '플랫폼 미제공' ? '실시간 위치 추적 비활성화' : '실시간 해커 접속 경로')}
+              </h3>
             </div>
-            <div className="flex items-center gap-2 bg-[#0B0C10] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-mono text-emerald-400">
-              <span className="w-1.5 h-1.5 bg-[#00F5D4] rounded-full" />
-              실시간 위치 연동
-            </div>
+            {incoming.isServerVerified ? (
+              <div className="flex items-center gap-2 bg-[#0B0C10] border border-[#00F5D4]/20 px-3 py-1.5 rounded-lg text-[10px] font-mono text-emerald-400">
+                <span className="w-1.5 h-1.5 bg-[#00F5D4] rounded-full animate-pulse" />
+                서버 인증 완료
+              </div>
+            ) : incoming.ip === '플랫폼 미제공' ? (
+              <div className="flex items-center gap-2 bg-[#0B0C10] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-mono text-red-400">
+                <span className="w-1.5 h-1.5 bg-red-400 rounded-full" />
+                위치 정보 없음
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-[#0B0C10] border border-white/10 px-3 py-1.5 rounded-lg text-[10px] font-mono text-emerald-400">
+                <span className="w-1.5 h-1.5 bg-[#00F5D4] rounded-full" />
+                실시간 위치 연동
+              </div>
+            )}
           </div>
 
           {/* 다크 2D 세계 지도 SVG 영역 */}
-          <div className="relative flex-1 flex items-center justify-center my-6">
-            <svg 
-              viewBox="0 0 800 360" 
-              className="w-full h-full max-h-[480px]"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* 2. 추상화된 대륙 패스들 */}
-              <g className="opacity-45">
-                {/* 북미/남미 대륙 */}
-                <path 
-                  d="M 60 70 L 140 70 L 165 110 L 130 150 L 140 190 L 180 230 L 165 310 L 145 340 L 130 300 L 105 240 L 95 210 L 50 160 L 40 110 Z" 
-                  fill="rgba(255, 255, 255, 0.03)" 
-                  stroke="rgba(255, 255, 255, 0.1)" 
-                  strokeWidth="1.2" 
-                />
-                {/* 유라시아 대륙 */}
-                <path 
-                  d="M 280 60 L 420 50 L 610 60 L 685 90 L 710 130 L 695 190 L 650 200 L 620 160 L 550 210 L 490 230 L 450 180 L 400 160 L 320 180 L 290 130 L 260 110 Z" 
-                  fill="rgba(255, 255, 255, 0.03)" 
-                  stroke="rgba(255, 255, 255, 0.1)" 
-                  strokeWidth="1.2" 
-                />
-                {/* 아프리카 대륙 */}
-                <path 
-                  d="M 310 180 L 390 180 L 420 200 L 430 240 L 400 300 L 365 320 L 345 280 L 330 240 L 300 220 Z" 
-                  fill="rgba(255, 255, 255, 0.03)" 
-                  stroke="rgba(255, 255, 255, 0.1)" 
-                  strokeWidth="1.2" 
-                />
-                {/* 호주 대륙 */}
-                <path 
-                  d="M 640 260 L 690 270 L 710 300 L 675 320 L 630 300 Z" 
-                  fill="rgba(255, 255, 255, 0.03)" 
-                  stroke="rgba(255, 255, 255, 0.1)" 
-                  strokeWidth="1.2" 
-                />
-              </g>
+          {incoming.ip === '플랫폼 미제공' && !incoming.isServerVerified ? (
+            <div className="relative flex-1 flex flex-col items-center justify-center my-6 text-center px-4 animate-fade-in">
+              <div className="w-20 h-20 bg-orange-500/10 border border-orange-500/20 rounded-full flex items-center justify-center mb-4 text-orange-400 animate-pulse">
+                <span className="material-symbols-outlined text-4xl">location_off</span>
+              </div>
+              <h4 className="text-sm font-bold text-slate-200 mb-1.5">위치 추적 정보 없음</h4>
+              <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+                해당 플랫폼은 보안 알림 메일 내에 로그인 IP 주소를 포함하지 않습니다. 지리적 위치 및 유동 속도 분석을 제공할 수 없습니다.
+              </p>
+            </div>
+          ) : (
+            <div className="relative flex-1 flex items-center justify-center my-6">
+              <svg 
+                viewBox="0 0 800 360" 
+                className="w-full h-full max-h-[480px]"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                {/* 2. 추상화된 대륙 패스들 */}
+                <g className="opacity-45">
+                  {/* 북미/남미 대륙 */}
+                  <path 
+                    d="M 60 70 L 140 70 L 165 110 L 130 150 L 140 190 L 180 230 L 165 310 L 145 340 L 130 300 L 105 240 L 95 210 L 50 160 L 40 110 Z" 
+                    fill="rgba(255, 255, 255, 0.03)" 
+                    stroke="rgba(255, 255, 255, 0.1)" 
+                    strokeWidth="1.2" 
+                  />
+                  {/* 유라시아 대륙 */}
+                  <path 
+                    d="M 280 60 L 420 50 L 610 60 L 685 90 L 710 130 L 695 190 L 650 200 L 620 160 L 550 210 L 490 230 L 450 180 L 400 160 L 320 180 L 290 130 L 260 110 Z" 
+                    fill="rgba(255, 255, 255, 0.03)" 
+                    stroke="rgba(255, 255, 255, 0.1)" 
+                    strokeWidth="1.2" 
+                  />
+                  {/* 아프리카 대륙 */}
+                  <path 
+                    d="M 310 180 L 390 180 L 420 200 L 430 240 L 400 300 L 365 320 L 345 280 L 330 240 L 300 220 Z" 
+                    fill="rgba(255, 255, 255, 0.03)" 
+                    stroke="rgba(255, 255, 255, 0.1)" 
+                    strokeWidth="1.2" 
+                  />
+                  {/* 호주 대륙 */}
+                  <path 
+                    d="M 640 260 L 690 270 L 710 300 L 675 320 L 630 300 Z" 
+                    fill="rgba(255, 255, 255, 0.03)" 
+                    stroke="rgba(255, 255, 255, 0.1)" 
+                    strokeWidth="1.2" 
+                  />
+                </g>
 
-              {/* 3. 공격 추적 레이저 경로 (Bezier Curve) */}
-              <path 
-                d={pathD} 
-                fill="none" 
-                stroke="#FF2E63" 
-                strokeWidth="1.5" 
-                strokeOpacity="0.4" 
-              />
-              
-              {/* 실시간 흐르는 레이저 광선 선 */}
-              <path 
-                d={pathD} 
-                fill="none" 
-                stroke="#FF2E63" 
-                strokeWidth="2.5" 
-                strokeLinecap="round" 
-                strokeDasharray="40 160" 
-                className="animate-laser" 
-              />
+                {/* 3. 공격 추적 레이저 경로 (Bezier Curve) */}
+                <path 
+                  d={pathD} 
+                  fill="none" 
+                  stroke={incoming.isServerVerified ? "#00F5D4" : "#FF2E63"} 
+                  strokeWidth="1.5" 
+                  strokeOpacity="0.4" 
+                />
+                
+                {/* 실시간 흐르는 레이저 광선 선 */}
+                <path 
+                  d={pathD} 
+                  fill="none" 
+                  stroke={incoming.isServerVerified ? "#00F5D4" : "#FF2E63"} 
+                  strokeWidth="2.5" 
+                  strokeLinecap="round" 
+                  strokeDasharray="40 160" 
+                  className="animate-laser" 
+                />
 
-              {/* 4. 출발지 노드 (공격지: Origin) */}
-              <g transform={`translate(${originCoords[0]}, ${originCoords[1]})`}>
-                <circle r="4.5" fill="#FF2E63" />
-                <text 
-                  y="-16" 
-                  textAnchor="middle" 
-                  fill="#FF2E63" 
-                  className="text-[10px] font-mono font-bold"
-                >
-                  {route.origin.toUpperCase()} (공격 근원)
-                </text>
-              </g>
+                {/* 4. 출발지 노드 (공격지: Origin) */}
+                <g transform={`translate(${originCoords[0]}, ${originCoords[1]})`}>
+                  <circle r="4.5" fill={incoming.isServerVerified ? "#00F5D4" : "#FF2E63"} />
+                  <text 
+                    y="-16" 
+                    textAnchor="middle" 
+                    fill={incoming.isServerVerified ? "#00F5D4" : "#FF2E63"} 
+                    className="text-[10px] font-mono font-bold"
+                  >
+                    {route.origin.toUpperCase()} {incoming.isServerVerified ? '(공식 서버)' : '(공격 근원)'}
+                  </text>
+                </g>
 
-              {/* 5. 목적지 노드 (대상지: Target) */}
-              <g transform={`translate(${destCoords[0]}, ${destCoords[1]})`}>
-                <circle r="4.5" fill="#00F5D4" />
-                <text 
-                  y="-16" 
-                  textAnchor="middle" 
-                  fill="#00F5D4" 
-                  className="text-[10px] font-mono font-bold"
-                >
-                  {route.destination.toUpperCase()} (경유 거점)
-                </text>
-              </g>
-            </svg>
-          </div>
+                {/* 5. 목적지 노드 (대상지: Target) */}
+                <g transform={`translate(${destCoords[0]}, ${destCoords[1]})`}>
+                  <circle r="4.5" fill="#00F5D4" />
+                  <text 
+                    y="-16" 
+                    textAnchor="middle" 
+                    fill="#00F5D4" 
+                    className="text-[10px] font-mono font-bold"
+                  >
+                    {route.destination.toUpperCase()} (경유 거점)
+                  </text>
+                </g>
+              </svg>
+            </div>
+          )}
 
           {/* 하단 지리 좌표계 스탯 레이블 */}
           <div className="flex justify-between items-center bg-[#0B0C10]/60 backdrop-blur-sm border border-white/10 rounded-xl p-3.5 z-10 text-[10px] font-mono text-slate-400">
-            <div className="flex items-center gap-4">
-              <div>
-                <span className="text-[#FF2E63] font-semibold">ORIGIN:</span> LAT {originCoords[1]}, LNG {originCoords[0]}
+            {incoming.ip === '플랫폼 미제공' && !incoming.isServerVerified ? (
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="text-red-400 font-semibold">ORIGIN:</span> LAT N/A, LNG N/A
+                </div>
+                <div>
+                  <span className="text-[#00F5D4] font-semibold">DEST:</span> LAT N/A, LNG N/A
+                </div>
               </div>
-              <div>
-                <span className="text-[#00F5D4] font-semibold">DEST:</span> LAT {destCoords[1]}, LNG {destCoords[0]}
+            ) : (
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="font-semibold" style={{ color: incoming.isServerVerified ? '#00F5D4' : '#FF2E63' }}>
+                    ORIGIN:
+                  </span> LAT {originLatLon[0].toFixed(4)}, LNG {originLatLon[1].toFixed(4)}
+                </div>
+                <div>
+                  <span className="text-[#00F5D4] font-semibold">DEST:</span> LAT {destLatLon[0].toFixed(4)}, LNG {destLatLon[1].toFixed(4)}
+                </div>
               </div>
-            </div>
+            )}
             <div className="text-right">
               상태:{' '}
-              {isDeviceTrusted(incoming.device?.name) ? (
+              {incoming.isServerVerified ? (
+                <span className="text-[#00F5D4] font-bold">✓ 공식 발신 서버 인증됨 (안전)</span>
+              ) : incoming.ip === '플랫폼 미제공' ? (
+                <span className="text-red-400 font-bold">위치 추적 불가능 (IP 미제공)</span>
+              ) : isDeviceTrusted(incoming.device?.name) ? (
                 <span className="text-[#00F5D4] font-bold">✓ 신뢰 기기 (안전)</span>
               ) : (
                 <span className="text-[#FF2E63] font-bold">의심스러운 기기 발견</span>
@@ -581,10 +759,37 @@ export const WarpAnalysisPage: React.FC<{ incoming?: LogBoxRecord; route?: Route
         {/* 왼쪽 패널: 상세 정보 카드 */}
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <InfoCell label="접속한 서비스" value={routeLabel} sub={`출발지: ${route.origin}`} />
-            <InfoCell label="발생 시각" value={displayTime} sub="로그 위조 여부 검증 완료" />
-            <InfoCell label="기기 명칭" value={incoming.device?.name ?? '확인되지 않음'} sub={`ID: ${incoming.device?.id ?? 'N/A'}`} />
-            <InfoCell label="접속 IP 주소" value={incoming.ip ?? '확인되지 않음'} sub={`국가: ${route.origin}`} />
+            {incoming.isServerVerified ? (
+              <>
+                <InfoCell
+                  label="발신처 서버 검증"
+                  value={`✉️ 발신처: ${incoming.domain ?? '공식 서버'}`}
+                  sub={`서버 위치: ${route.origin}`}
+                />
+                <InfoCell label="발생 시각" value={displayTime} sub="로그 위조 여부 검증 완료" />
+                <InfoCell label="발신 기기 정보" value="SMTP 발신 서버" sub={`도메인: ${incoming.domain ?? 'N/A'}`} />
+                <InfoCell
+                  label="공식 서버 IP"
+                  value={incoming.ip ?? '확인되지 않음'}
+                  sub={`서버 위치: ${route.origin}`}
+                />
+              </>
+            ) : (
+              <>
+                <InfoCell
+                  label="접속한 서비스"
+                  value={serviceTitle}
+                  sub={incoming.ip === '플랫폼 미제공' ? '출발지: 확인 불가' : `출발지: ${route.origin}`}
+                />
+                <InfoCell label="발생 시각" value={displayTime} sub="로그 위조 여부 검증 완료" />
+                <InfoCell label="기기 명칭" value={incoming.device?.name ?? '확인되지 않음'} sub={`ID: ${incoming.device?.id ?? 'N/A'}`} />
+                <InfoCell
+                  label="접속 IP 주소"
+                  value={incoming.ip ?? '확인되지 않음'}
+                  sub={incoming.ip === '플랫폼 미제공' ? '위치 확인 불가' : `국가: ${route.origin}`}
+                />
+              </>
+            )}
           </div>
 
           <div className="bg-[#121318] border border-white/10 rounded-2xl p-4.5 space-y-2">

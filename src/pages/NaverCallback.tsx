@@ -6,7 +6,8 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { NAVER_OAUTH_CONFIG, NAVER_STORAGE_KEYS } from '../config/authConfig';
+import { NAVER_STORAGE_KEYS, verifyOAuthState } from '../config/authConfig';
+import { saveEncryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
 const NaverCallback: React.FC = () => {
   const navigate = useNavigate();
@@ -20,8 +21,8 @@ const NaverCallback: React.FC = () => {
     const code = params.get('code');
     const returnedState = params.get('state');
 
-    // CSRF 보안 검증
-    if (!code || returnedState !== NAVER_OAUTH_CONFIG.STATE) {
+    // CSRF 보안 검증 (동적 state 검증)
+    if (!code || !verifyOAuthState(returnedState)) {
       console.error('[NaverCallback] 유효하지 않은 인가 코드 또는 State:', { code, returnedState });
       navigate('/settings', { replace: true, state: { naverError: 'INVALID_STATE' } });
       return;
@@ -29,8 +30,8 @@ const NaverCallback: React.FC = () => {
 
     try {
       // 로컬 스토리지 정보 갱신
-      localStorage.setItem(NAVER_STORAGE_KEYS.connected, 'true');
-      localStorage.setItem(NAVER_STORAGE_KEYS.email, 'user****@naver.com');
+      saveEncryptedSync(NAVER_STORAGE_KEYS.connected, true, STORAGE_PASS);
+      saveEncryptedSync(NAVER_STORAGE_KEYS.email, 'user****@naver.com', STORAGE_PASS);
     } catch (err) {
       console.error('[NaverCallback] localStorage 저장 실패:', err);
     }

@@ -2,18 +2,14 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLogBox } from '../context/LogBoxContext';
 import { useNaverAuth } from '../hooks/useNaverAuth';
+import axios from 'axios';
 
 // ──────────────────────────────────────────────────
 // 보안 달력 유틸리티
 // ──────────────────────────────────────────────────
 type StatusType = 'safe' | 'caution' | 'danger';
 
-const dateStatuses: StatusType[] = Array.from({ length: 30 }, (_, index) => {
-  const value = (index + 1) % 7;
-  if (value === 0 || value === 6) return 'danger';
-  if (value === 1 || value === 4) return 'caution';
-  return 'safe';
-});
+
 
 const getDotClass = (status: StatusType) => {
   switch (status) {
@@ -102,7 +98,59 @@ const UnregisterModal: React.FC<UnregisterModalProps> = ({ isOpen, onClose }) =>
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setToken } = useLogBox();
+  const { setToken, logs } = useLogBox();
+
+  // 이번 달 연도/월 정보 및 총 일수 계산
+  const { year, month, daysInMonth } = useMemo(() => {
+    const now = new Date();
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth(),
+      daysInMonth: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
+    };
+  }, []);
+
+  // 실제 이메일 기록(logs) 날짜와 위협 수준을 연동하여 달력 상태 계산 (실시간 연동)
+  const dateStatuses = useMemo<StatusType[]>(() => {
+    const statuses: StatusType[] = Array.from({ length: daysInMonth }, () => 'safe');
+
+    // 이번 달에 속하는 기록만 필터링
+    const thisMonthRecords = logs.filter((r) => {
+      if (!r.timeISO) return false;
+      try {
+        const d = new Date(r.timeISO);
+        return d.getFullYear() === year && d.getMonth() === month;
+      } catch {
+        return false;
+      }
+    });
+
+    // 일별 최대 위협 수준 매핑
+    thisMonthRecords.forEach((r) => {
+      try {
+        const day = new Date(r.timeISO!).getDate();
+        const dayIndex = day - 1;
+        if (dayIndex >= 0 && dayIndex < daysInMonth) {
+          const level = r.threatLevel ?? 0;
+          let currentStatus: StatusType = 'safe';
+          if (level === 3) currentStatus = 'danger';
+          else if (level === 1 || level === 2) currentStatus = 'caution';
+
+          // 더 높은 위협 수준이 우선적으로 달력에 표기되도록 갱신
+          const prevStatus = statuses[dayIndex];
+          if (currentStatus === 'danger') {
+            statuses[dayIndex] = 'danger';
+          } else if (currentStatus === 'caution' && prevStatus !== 'danger') {
+            statuses[dayIndex] = 'caution';
+          }
+        }
+      } catch (e) {
+        console.warn('[SettingsPage] Record date parse failed', e);
+      }
+    });
+
+    return statuses;
+  }, [logs, year, month, daysInMonth]);
 
   // ── 네이버 연동 상태 관리 커스텀 훅 ─────────────────
   const {
@@ -160,7 +208,7 @@ const SettingsPage: React.FC = () => {
         (acc, status) => { acc[status] += 1; return acc; },
         { safe: 0, caution: 0, danger: 0 } as Record<StatusType, number>,
       ),
-    [],
+    [dateStatuses],
   );
 
   // ──────────────────────────────────────────────────

@@ -20,7 +20,7 @@ const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <GoogleOAuthProvider clientId="468667237419-3sk9i6nlrpfl5i6f1f283boam8rfr948.apps.googleusercontent.com">
+      <GoogleOAuthProvider clientId={clientId}>
         <App />
       </GoogleOAuthProvider>
     </ErrorBoundary>

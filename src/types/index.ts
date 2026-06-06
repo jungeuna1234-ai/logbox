@@ -13,7 +13,7 @@ export interface UserProfile {
 }
 
 /** 보안 알림 출처 (Gmail로 포워딩된 메일 포함) */
-export type SecurityPlatform = 'google' | 'naver' | 'kakao' | 'instagram' | 'discord' | 'netflix' | 'steam' | 'unknown';
+export type SecurityPlatform = 'google' | 'naver' | 'kakao' | 'instagram' | 'discord' | 'netflix' | 'steam' | 'facebook' | 'pinterest' | 'lilys' | 'github' | 'openai' | 'tryhackme' | 'mangoboard' | 'cursor' | 'unknown';
 
 /** 기획서 6번 — 신뢰 기기 */
 export interface TrustedDevice {
@@ -28,6 +28,8 @@ export interface TrustedDevice {
   trusted: boolean;
   /** @deprecated lastActive 사용 */
   lastSeen?: string;
+  ip?: string;
+  location?: string;
 }
 
 export interface SafeZoneBase {
@@ -51,4 +53,8 @@ export interface LogBoxRecord {
   body?: string;
   from?: string;
   subject?: string;
+  domain?: string;
+  snippet?: string;
+  isServerVerified?: boolean;
+  authMode?: 'TypeA' | 'TypeB';
 }

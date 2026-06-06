@@ -11,6 +11,7 @@ import OnboardingPage from './pages/OnboardingPage';
 import NaverCallback from './pages/NaverCallback';
 import Layout from './components/Layout';
 import { requestNotificationPermission } from './utils/notificationUtils';
+import { loadDecryptedSync, STORAGE_PASS } from './services/cryptoService';
 
 function AuthLoading(): React.ReactElement {
   return (
@@ -33,7 +34,7 @@ function AppRoutes(): React.ReactElement {
   const [onboardingSeen, setOnboardingSeen] = useState<boolean>(false);
 
   useEffect(() => {
-    setOnboardingSeen(typeof window !== 'undefined' && localStorage.getItem('onboardingSeen') === 'true');
+    setOnboardingSeen(typeof window !== 'undefined' && loadDecryptedSync<boolean>('onboardingSeen', STORAGE_PASS) === true);
   }, [location.pathname]);
 
   const redirectRoot = useMemo(() => {

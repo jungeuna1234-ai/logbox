@@ -3,11 +3,11 @@
 // LogBox 거점 및 신뢰 기기 관리 — 프리미엄 다크 사이버펑크 테마 및 커스텀 모달 UI
 // =============================================================================
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useLogBox } from '../context/LogBoxContext';
 import { TrustedDevice } from '../types';
-import { fetchSecurityEmails } from '../services/gmailService';
 import { isDeviceTrusted, addTrustedDeviceName, buildCurrentTrustedDevice } from '../utils/deviceUtils';
+import { loadDecryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
 // =============================================================================
 // ① 데모 데이터 상수
@@ -103,7 +103,7 @@ const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({ device, onClose
 
 interface DeviceCardProps {
   device: TrustedDevice & { ip?: string; location?: string; isHacker?: boolean };
-  onRemoteLogout: (device: any) => void;
+  onRemoteLogout: (device: TrustedDevice & { ip?: string; location?: string; isHacker?: boolean }) => void;
   onTrustDevice?: (deviceName: string) => void;
 }
 
@@ -200,11 +200,22 @@ const DeviceCard: React.FC<DeviceCardProps> = ({ device, onRemoteLogout, onTrust
 
 const parseRoute = (rawText?: string) => {
   const text = rawText || '';
-  const match = text.match(/([^\s·[\]]+)\s*(?:→|->)\s*([^\s·[\]]+)/);
-  if (match) {
+  const parts = text.split(/[·•]/);
+  if (parts.length >= 2) {
+    const routePart = parts[1].trim();
+    const arrowParts = routePart.split(/→|->/);
+    if (arrowParts.length >= 2) {
+      return {
+        origin: arrowParts[0].trim(),
+        destination: arrowParts[1].trim(),
+      };
+    }
+  }
+  const arrowParts = text.split(/→|->/);
+  if (arrowParts.length >= 2) {
     return {
-      origin: match[1].trim(),
-      destination: match[2].trim(),
+      origin: arrowParts[0].trim(),
+      destination: arrowParts[1].trim(),
     };
   }
   return {
@@ -220,9 +231,6 @@ const parseRoute = (rawText?: string) => {
 const BaseManagePage: React.FC = () => {
   const { devices: ctxDevices, addDevice, removeDevice } = useLogBox();
 
-  const [devices, setDevices] = useState<Array<TrustedDevice & { ip?: string; location?: string; isHacker?: boolean }>>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-
   const [newDeviceModel, setNewDeviceModel] = useState('');
   const [newDeviceOs, setNewDeviceOs] = useState('');
   const [newDeviceBrowser, setNewDeviceBrowser] = useState('');
@@ -232,6 +240,8 @@ const BaseManagePage: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const [trustTrigger, setTrustTrigger] = useState(0);
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
@@ -242,82 +252,20 @@ const BaseManagePage: React.FC = () => {
     }, 3000);
   }, []);
 
-  const loadDevices = useCallback(() => {
-    const token = localStorage.getItem('gmail_token');
-    if (token) {
-      setIsLoading(true);
-      fetchSecurityEmails(token)
-        .then((records) => {
-          const uniqueDevicesMap = new Map<string, typeof devices[0]>();
-          
-          // 1. Current Device
-          const currentCtxDevice = ctxDevices.find((d) => d.isCurrent) || buildCurrentTrustedDevice();
-          const currentDev = {
-            ...currentCtxDevice,
-            trusted: true,
-            isCurrent: true,
-          };
-          uniqueDevicesMap.set(currentDev.name.toLowerCase(), currentDev);
+  const gmailToken = loadDecryptedSync<string>('gmail_token', STORAGE_PASS);
 
-          // 2. Extract from records
-          records.forEach((r) => {
-            const devName = r.device?.name || (r.platform && r.platform !== 'unknown' ? `${r.platform} Client` : null);
-            if (!devName) return;
+  const devices = useMemo(() => {
+    return ctxDevices.map((d) => ({
+      ...d,
+      trusted: isDeviceTrusted(d.name),
+      isHacker: !isDeviceTrusted(d.name) && !d.isCurrent,
+    }));
+  }, [ctxDevices, trustTrigger]);
 
-            const lowerName = devName.toLowerCase();
-            const route = parseRoute(r.raw);
-            const isTrusted = isDeviceTrusted(devName);
-            
-            const existing = uniqueDevicesMap.get(lowerName);
-            if (existing && existing.isCurrent) return;
-
-            let os = r.device?.os;
-            let browser = r.device?.browser;
-            if (!os || !browser) {
-              if (/chrome/i.test(devName)) browser = 'Chrome';
-              else if (/safari/i.test(devName)) browser = 'Safari';
-              else if (/iphone/i.test(devName)) { os = 'iOS'; browser = 'Safari'; }
-              else if (/windows/i.test(devName)) os = 'Windows';
-              else if (/android/i.test(devName)) os = 'Android';
-            }
-
-            uniqueDevicesMap.set(lowerName, {
-              id: r.device?.id || `dev-${r.id}`,
-              name: devName,
-              model: r.device?.model || devName,
-              os: os || 'Unknown OS',
-              browser: browser || 'Unknown Browser',
-              trusted: isTrusted,
-              isCurrent: false,
-              isHacker: !isTrusted,
-              ip: r.ip || 'Unknown IP',
-              location: route.origin || 'Unknown Location',
-              lastActive: r.timeISO,
-            });
-          });
-
-          setDevices(Array.from(uniqueDevicesMap.values()));
-        })
-        .catch((err) => console.error(err))
-        .finally(() => setIsLoading(false));
-    } else {
-      // Demo Mode
-      const currentCtxDevice = ctxDevices.find((d) => d.isCurrent) || buildCurrentTrustedDevice();
-      const otherCtxDevices = ctxDevices.filter((d) => !d.isCurrent);
-      setDevices([
-        { ...currentCtxDevice, isCurrent: true, trusted: true },
-        ...otherCtxDevices.map(d => ({ ...d, trusted: isDeviceTrusted(d.name) })),
-        { ...HACKER_DEVICE_INFO, trusted: isDeviceTrusted(HACKER_DEVICE_INFO.name) }
-      ]);
-    }
-  }, [ctxDevices]);
-
-  useEffect(() => {
-    loadDevices();
-  }, [loadDevices]);
+  const isLoading = false;
 
   // ── [원격 로그아웃 클릭] ──
-  const handleRemoteLogoutClick = useCallback((device: any) => {
+  const handleRemoteLogoutClick = useCallback((device: TrustedDevice & { ip?: string; location?: string }) => {
     setConfirmLogoutDevice(device);
   }, []);
 
@@ -326,7 +274,6 @@ const BaseManagePage: React.FC = () => {
     if (!confirmLogoutDevice) return;
     
     const deviceId = confirmLogoutDevice.id;
-    setDevices((prev) => prev.filter((d) => d.id !== deviceId));
     removeDevice(deviceId);
 
     setConfirmLogoutDevice(null);
@@ -336,8 +283,8 @@ const BaseManagePage: React.FC = () => {
   const handleTrustDevice = useCallback((deviceName: string) => {
     addTrustedDeviceName(deviceName);
     showToast(`"${deviceName}"이(가) 신뢰 기기로 등록되었습니다.`, "success");
-    loadDevices(); // reload list
-  }, [loadDevices, showToast]);
+    setTrustTrigger((prev) => prev + 1);
+  }, [showToast]);
 
   const handleAddTrustedDevice = useCallback(() => {
     const model = newDeviceModel.trim() || 'Unknown Device';
@@ -361,7 +308,6 @@ const BaseManagePage: React.FC = () => {
       lastSeen: now,
     };
 
-    setDevices((prev) => [...prev, newDevice]);
     addDevice(newDevice);
 
     setNewDeviceModel('');

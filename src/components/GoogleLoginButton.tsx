@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLogBox } from '../context/LogBoxContext';
 import { AuthToken } from '../types/index';
 import { isGoogleOAuthConfigured } from '../config/googleAuth';
+import { saveEncryptedSync, loadDecryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
 type GoogleTokenResp = { access_token?: string; expires_in?: number; token_type?: string; scope?: string };
 
@@ -34,12 +35,12 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({ onSuccess }) => {
           tokenType: tr.token_type ?? 'Bearer',
           scope: tr.scope ?? 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
         };
-        localStorage.setItem('gmail_token', access);
+        saveEncryptedSync('gmail_token', access, STORAGE_PASS);
         await setToken(token);
         if (onSuccess) {
           onSuccess();
         } else {
-          const onboardingSeen = localStorage.getItem('onboardingSeen') === 'true';
+          const onboardingSeen = loadDecryptedSync<boolean>('onboardingSeen', STORAGE_PASS) === true;
           if (onboardingSeen) {
             navigate('/', { replace: true });
           } else {

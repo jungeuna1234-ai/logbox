@@ -6,8 +6,25 @@
 export const NAVER_OAUTH_CONFIG = {
   CLIENT_ID: 'ixKgoLD_Sl',
   CALLBACK_URL: 'http://localhost:5173/oauth/callback/naver',
-  STATE: 'logbox_state', // CSRF 방지용 state 값
 } as const;
+
+export function generateOAuthState(): string {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  const state = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    window.sessionStorage.setItem('naver_oauth_state', state);
+  }
+  return state;
+}
+
+export function verifyOAuthState(receivedState: string | null): boolean {
+  if (!receivedState) return false;
+  if (typeof window === 'undefined' || !window.sessionStorage) return false;
+  const storedState = window.sessionStorage.getItem('naver_oauth_state');
+  window.sessionStorage.removeItem('naver_oauth_state'); // 1회용 소비
+  return !!storedState && storedState === receivedState;
+}
 
 export const NAVER_STORAGE_KEYS = {
   connected: 'naver_connected',

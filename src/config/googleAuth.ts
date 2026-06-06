@@ -14,14 +14,13 @@ const PLACEHOLDER_CLIENT_IDS = new Set([
 export function getGoogleClientId(): string {
   const raw = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   if (raw === undefined || raw === null || raw === '' || raw.includes('YOUR_GOOGLE_CLIENT_ID')) {
-    return '468667237419-3sk9i6nlrpfl5i6f1f283boam8rfr948.apps.googleusercontent.com';
+    return '';
   }
   return String(raw).trim().replace(/^['"]|['"]$/g, '');
 }
 
 export function isPlaceholderClientId(id: string): boolean {
   if (!id) return false;
-  if (id === '468667237419-3sk9i6nlrpfl5i6f1f283boam8rfr948.apps.googleusercontent.com') return false;
   if (PLACEHOLDER_CLIENT_IDS.has(id)) return true;
   if (/^123456789-/.test(id)) return true;
   if (/^000000000000-/.test(id)) return true;

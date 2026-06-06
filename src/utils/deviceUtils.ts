@@ -1,4 +1,6 @@
+import axios from 'axios';
 import { TrustedDevice } from '../types/index';
+import { loadDecryptedSync, saveEncryptedSync, STORAGE_PASS } from '../services/cryptoService';
 
 export function getCurrentDeviceFingerprint(): string {
   if (typeof navigator === 'undefined') return 'unknown-device';
@@ -59,8 +61,8 @@ export function buildCurrentTrustedDevice(): TrustedDevice {
 
 export function getTrustedDevices(): string[] {
   try {
-    const raw = localStorage.getItem('trusted_devices');
-    return raw ? JSON.parse(raw) : [];
+    const decrypted = loadDecryptedSync<string[]>('trusted_devices', STORAGE_PASS);
+    return decrypted || [];
   } catch {
     return [];
   }
@@ -71,7 +73,12 @@ export function addTrustedDeviceName(name: string): void {
     const list = getTrustedDevices();
     if (!list.includes(name)) {
       list.push(name);
-      localStorage.setItem('trusted_devices', JSON.stringify(list));
+      saveEncryptedSync('trusted_devices', list, STORAGE_PASS);
+      
+      // 백엔드 MongoDB에 신뢰 기기 이름 동기화 요청
+      axios.post('/api/user/trusted-device-names', { name }).catch((err) => {
+        console.error('[LogBox] Failed to add trusted device name to server:', err);
+      });
     }
   } catch (e) {
     console.error(e);

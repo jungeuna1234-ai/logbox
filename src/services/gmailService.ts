@@ -1,14 +1,57 @@
 import type { LogBoxRecord, SecurityPlatform } from '../types/index';
 import { getThreatLevel } from '../utils/geoUtils';
 import { formatRecordSummary } from '../utils/recordUtils';
-import { escapeHtml } from '../utils/sanitize';
 import { geocode } from './geocodingService';
+import { isDeviceTrusted } from '../utils/deviceUtils';
+import { sanitizeToPlainText } from '../utils/sanitize';
+
+export function isValidIp(ipStr: string): boolean {
+  const parts = ipStr.split('.');
+  if (parts.length !== 4) return false;
+  
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return false;
+    const num = parseInt(part, 10);
+    if (num < 0 || num > 255) return false;
+    // 마디가 1자리를 초과하면서 '0'으로 시작하는 경우(예: '05.28...' 등 날짜/버전 번호) 오인 차단
+    if (part.length > 1 && part.startsWith('0')) return false;
+  }
+  return true;
+}
+
+export function extractFirstIp(text: string): string | null {
+  const ipRegex = /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g;
+  let match;
+  while ((match = ipRegex.exec(text)) !== null) {
+    if (isValidIp(match[0])) {
+      return match[0];
+    }
+  }
+  return null;
+}
 
 const MAX_MESSAGES = 20;
 
-/** Gmail 검색: 외부 서비스의 로그인 관련 보안 메일 */
+function extractDomain(text: string): string | undefined {
+  const urlRegex = /(https?:\/\/[^\s/$.?#].[^\s]*)/gi;
+  const match = text.match(urlRegex);
+  if (match && match[0]) {
+    try {
+      const url = new URL(match[0]);
+      return url.hostname;
+    } catch {
+      const hostMatch = match[0].match(/https?:\/\/([^\/\s]+)/i);
+      return hostMatch ? hostMatch[1] : undefined;
+    }
+  }
+  const domainRegex = /\b([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b/i;
+  const domainMatch = text.match(domainRegex);
+  return domainMatch ? domainMatch[1] : undefined;
+}
+
+/** Gmail 검색: 외부 서비스 및 구글/네이버/카카오의 로그인 관련 보안 메일 (최근 30일) */
 export function buildGmailSecurityListQuery(): string {
-  return 'from:(instagram OR discord OR netflix OR steam) (subject:로그인 OR subject:접속 OR subject:security OR subject:login OR subject:alert OR subject:인증)';
+  return '보안 OR 로그인 OR 인증 OR security OR login';
 }
 
 function base64UrlDecode(input: string): string {
@@ -44,34 +87,80 @@ function extractFirstRegex(text: string, rx: RegExp): string | null {
   return m && m[1] ? m[1] : null;
 }
 
-/** 제목·발신·스니펫으로 플랫폼 추정 */
-export function detectSecurityPlatform(subject: string, from: string, snippet: string): SecurityPlatform {
-  const blob = `${subject}\n${from}\n${snippet}`.toLowerCase();
-
-  if (blob.includes('instagram') || from.includes('instagram.com')) {
+/** 수집된 이메일의 발신 주소(From) 및 제목(Subject) 메타데이터를 분석하여 실제 서비스 명칭을 판별하는 '플랫폼 식별 매핑 헬퍼' */
+export function detectPlatform(from: string, subject: string): SecurityPlatform {
+  const combined = `${from} ${subject}`.toLowerCase();
+  
+  if (combined.includes('github') || combined.includes('깃허브')) {
+    return 'github';
+  }
+  if (combined.includes('openai') || combined.includes('chatgpt')) {
+    return 'openai';
+  }
+  if (combined.includes('tryhackme')) {
+    return 'tryhackme';
+  }
+  if (combined.includes('mangoboard') || combined.includes('망고보드')) {
+    return 'mangoboard';
+  }
+  if (combined.includes('instagram') || combined.includes('인스타그램')) {
     return 'instagram';
   }
-  if (blob.includes('discord') || from.includes('discord.com') || from.includes('discordapp.com')) {
+  if (combined.includes('discord') || combined.includes('디스코드')) {
     return 'discord';
   }
-  if (blob.includes('netflix') || from.includes('netflix.com')) {
+  if (combined.includes('netflix') || combined.includes('넷플릭스')) {
     return 'netflix';
   }
-  if (blob.includes('steam') || from.includes('steampowered.com')) {
+  if (combined.includes('facebook') || combined.includes('페이스북')) {
+    return 'facebook';
+  }
+  if (combined.includes('pinterest') || combined.includes('핀터레스트')) {
+    return 'pinterest';
+  }
+  if (combined.includes('lilys') || combined.includes('릴리스') || combined.includes('릴리즈')) {
+    return 'lilys';
+  }
+  if (combined.includes('steam') || combined.includes('스팀')) {
     return 'steam';
   }
-  if (from.includes('accounts.google.com') || from.includes('google.com') || blob.includes('google account')) {
+  if (combined.includes('cursor.sh') || combined.includes('cursor.com') || combined.includes('cursor')) {
+    return 'cursor';
+  }
+  if (combined.includes('accounts.google.com') || combined.includes('google.com') || combined.includes('google') || combined.includes('구글')) {
     return 'google';
   }
-  if (
-    /\[네이버\]|naver|네이버|mail\.naver\.com|navercorp/i.test(subject + from) ||
-    /네이버|naver/i.test(snippet)
-  ) {
+  if (combined.includes('mail.naver.com') || combined.includes('naver.com') || combined.includes('navercorp') || combined.includes('naver') || combined.includes('네이버')) {
     return 'naver';
   }
-  if (/kakao|카카오|mail\.kakao/i.test(subject + from + snippet)) {
+  if (combined.includes('mail.kakao.com') || combined.includes('kakao.com') || combined.includes('kakao') || combined.includes('카카오')) {
     return 'kakao';
   }
+  return 'unknown';
+}
+
+/** 제목·발신·스니펫으로 플랫폼 추정 */
+export function detectSecurityPlatform(subject: string, from: string, snippet: string): SecurityPlatform {
+  const plat = detectPlatform(from, subject);
+  if (plat !== 'unknown') return plat;
+
+  const blob = snippet.toLowerCase();
+  if (blob.includes('github') || blob.includes('깃허브')) return 'github';
+  if (blob.includes('openai') || blob.includes('chatgpt')) return 'openai';
+  if (blob.includes('tryhackme')) return 'tryhackme';
+  if (blob.includes('mangoboard') || blob.includes('망고보드')) return 'mangoboard';
+  if (blob.includes('instagram') || blob.includes('인스타그램')) return 'instagram';
+  if (blob.includes('discord') || blob.includes('디스코드')) return 'discord';
+  if (blob.includes('netflix') || blob.includes('넷플릭스')) return 'netflix';
+  if (blob.includes('facebook') || blob.includes('페이스북')) return 'facebook';
+  if (blob.includes('pinterest') || blob.includes('핀터레스트')) return 'pinterest';
+  if (blob.includes('lilys') || blob.includes('릴리스') || blob.includes('릴리즈')) return 'lilys';
+  if (blob.includes('steam') || blob.includes('스팀')) return 'steam';
+  if (blob.includes('cursor') || blob.includes('커서')) return 'cursor';
+  if (blob.includes('google') || blob.includes('구글')) return 'google';
+  if (blob.includes('naver') || blob.includes('네이버')) return 'naver';
+  if (blob.includes('kakao') || blob.includes('카카오')) return 'kakao';
+  
   return 'unknown';
 }
 
@@ -87,7 +176,7 @@ export function parseExternalSecurityAlert(
   locationHint?: string;
 } {
   const combined = `${subject}\n${bodyText}`;
-  const ip = extractFirstRegex(combined, /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/) ?? undefined;
+  const ip = extractFirstIp(combined) ?? undefined;
   
   // Extract device
   let deviceHint = undefined;
@@ -118,6 +207,14 @@ export function parseExternalSecurityAlert(
   else if (platform === 'discord') platformName = '디스코드';
   else if (platform === 'netflix') platformName = '넷플릭스';
   else if (platform === 'steam') platformName = '스팀';
+  else if (platform === 'facebook') platformName = '페이스북';
+  else if (platform === 'pinterest') platformName = '핀터레스트';
+  else if (platform === 'lilys') platformName = 'Lilys AI';
+  else if (platform === 'github') platformName = 'GitHub';
+  else if (platform === 'openai') platformName = 'OpenAI';
+  else if (platform === 'tryhackme') platformName = 'TryHackMe';
+  else if (platform === 'mangoboard') platformName = '망고보드';
+  else if (platform === 'cursor') platformName = 'Cursor';
 
   const origin = locationHint || '알 수 없음';
   const dest = '서울'; // user default location
@@ -132,16 +229,6 @@ export function parseExternalSecurityAlert(
   };
 }
 
-/** 구글 보안 메일 요약 (기존 로직) */
-function summarizeGoogleSecurityEmail(raw: string, device?: string): string {
-  const loc =
-    extractFirstRegex(raw, /(?:Location|위치)[:：]?\s*([^\n<]+)/i) ??
-    extractFirstRegex(raw, /(?:from|에서)\s+([A-Za-z가-힣\s]+)/i);
-  const dev = device ?? extractFirstRegex(raw, /Device[:：]?\s*([^\n<]+)/i);
-  if (dev && loc) return `${dev.trim()} · ${loc.trim()}`;
-  if (dev) return dev.trim();
-  return formatRecordSummary(raw);
-}
 
 /**
  * 네이버 보안 알림(본문/제목) 파싱 뼈대 — 포워딩된 메일 형식에 맞춰 정규식 확장 예정
@@ -154,7 +241,7 @@ export function parseNaverSecurityAlert(subject: string, bodyText: string): {
   locationHint?: string;
 } {
   const combined = `${subject}\n${bodyText}`;
-  const ip = extractFirstRegex(combined, /(\d{1,3}(?:\.\d{1,3}){3})/) ?? undefined;
+  const ip = extractFirstIp(combined) ?? undefined;
   const deviceHint =
     extractFirstRegex(combined, /(?:기기|디바이스|Device)[:：\s]*([^\n<]+)/i) ??
     extractFirstRegex(combined, /(?:모델|Model)[:：\s]*([^\n<]+)/i) ??
@@ -180,7 +267,7 @@ export function parseKakaoSecurityAlert(subject: string, bodyText: string): {
   deviceHint?: string;
 } {
   const combined = `${subject}\n${bodyText}`;
-  const ip = extractFirstRegex(combined, /(\d{1,3}(?:\.\d{1,3}){3})/) ?? undefined;
+  const ip = extractFirstIp(combined) ?? undefined;
   const deviceHint =
     extractFirstRegex(combined, /(?:기기|OS|Device)[:：\s]*([^\n<]+)/i) ?? extractFirstRegex(combined, /(iOS|Android[^<\n]*)/i) ?? undefined;
 
@@ -191,27 +278,324 @@ export function parseKakaoSecurityAlert(subject: string, bodyText: string): {
 }
 
 type GmailPart = {
+  mimeType?: string;
   headers?: Array<{ name: string; value: string }>;
   body?: { data?: string };
   parts?: GmailPart[];
 };
 
-function walkParts(part: GmailPart | undefined, sink: (s: string) => void): void {
-  if (!part) return;
-  if (part.body && typeof part.body.data === 'string') {
-    sink(base64UrlDecode(part.body.data));
+function findPartsByMimeType(part: GmailPart | undefined, mimeType: string, list: GmailPart[] = []): GmailPart[] {
+  if (!part) return list;
+  if (part.mimeType === mimeType && part.body?.data) {
+    list.push(part);
   }
   if (Array.isArray(part.parts)) {
-    for (const p of part.parts) walkParts(p, sink);
+    for (const p of part.parts) {
+      findPartsByMimeType(p, mimeType, list);
+    }
+  }
+  return list;
+}
+
+export function sanitizeHtmlAndLegalese(text: string): string {
+  const lines = text.split(/\r?\n/);
+  const cleanLines: string[] = [];
+  
+  const blacklistKeywords = [
+    'privacy policy', 'terms of service', 'unsubscribe', '수신거부', '수신 거부',
+    'copyright', 'all rights reserved', 'amphitheatre parkway',
+    '자동 발송', '자동발송', 'reply', 'no-reply', 'noreply',
+    '이용약관', '개인정보처리방침', '개인정보 처리방침', '책임 한계와 법적고지', '법적 고지',
+    '모든 권리', '소유권'
+  ];
+
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+
+    // Normalize spacing
+    line = line.replace(/\s+/g, ' ');
+
+    const lineLower = line.toLowerCase();
+    
+    const isBlacklisted = blacklistKeywords.some(keyword => lineLower.includes(keyword));
+    if (isBlacklisted) continue;
+
+    // Strip any HTML tags that might have seeped in
+    line = line.replace(/<[^>]+>/g, ' ');
+
+    // Skip lines that look like CSS or Javascript blocks or XML tags
+    if (line.length > 250 || /[{}:;@#]/.test(line)) {
+      continue;
+    }
+
+    cleanLines.push(line.trim());
+  }
+
+  let result = cleanLines.join('\n').trim();
+
+  // Fallback to avoid empty output
+  if (!result) {
+    result = lines
+      .map(l => l.trim())
+      .filter(l => l && !/[{}:;@#]/.test(l) && l.length < 150)
+      .slice(0, 3)
+      .join('\n');
+  }
+
+  return result;
+}
+
+export function cleanHtmlToText(html: string): string {
+  // [FIX-07] DOMPurify 기반 안전한 텍스트 변환 후 법적 고지 제거
+  try {
+    const plainText = sanitizeToPlainText(html);
+    return sanitizeHtmlAndLegalese(plainText);
+  } catch {
+    // 폴백: 기존 정규식 방식
+    let text = html;
+    text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+    text = text.replace(/<[^>]+>/g, ' ');
+    text = text
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+    return sanitizeHtmlAndLegalese(text);
   }
 }
 
 function collectBodyText(payload: GmailPart | undefined, snippet: string): string {
-  let body = '';
-  walkParts(payload, (chunk) => {
-    body += chunk;
-  });
-  return body || snippet || '';
+  if (!payload) return snippet || '';
+
+  const plainParts = findPartsByMimeType(payload, 'text/plain');
+  if (plainParts.length > 0) {
+    let body = '';
+    for (const p of plainParts) {
+      if (p.body?.data) {
+        try {
+          body += base64UrlDecode(p.body.data);
+        } catch (e) {
+          console.warn('[LogBox] Failed to decode plain text part', e);
+        }
+      }
+    }
+    if (body.trim()) {
+      return sanitizeHtmlAndLegalese(body);
+    }
+  }
+
+  const htmlParts = findPartsByMimeType(payload, 'text/html');
+  if (htmlParts.length > 0) {
+    let htmlContent = '';
+    for (const p of htmlParts) {
+      if (p.body?.data) {
+        try {
+          htmlContent += base64UrlDecode(p.body.data);
+        } catch (e) {
+          console.warn('[LogBox] Failed to decode html part', e);
+        }
+      }
+    }
+    if (htmlContent.trim()) {
+      return cleanHtmlToText(htmlContent);
+    }
+  }
+
+  return snippet || '';
+}
+
+function collectRawBodyText(payload: GmailPart | undefined, snippet: string): string {
+  if (!payload) return snippet || '';
+
+  const plainParts = findPartsByMimeType(payload, 'text/plain');
+  if (plainParts.length > 0) {
+    let body = '';
+    for (const p of plainParts) {
+      if (p.body?.data) {
+        try {
+          body += base64UrlDecode(p.body.data);
+        } catch (e) {
+          console.warn('[LogBox] Failed to decode plain text part', e);
+        }
+      }
+    }
+    if (body.trim()) {
+      return body;
+    }
+  }
+
+  const htmlParts = findPartsByMimeType(payload, 'text/html');
+  if (htmlParts.length > 0) {
+    let htmlContent = '';
+    for (const p of htmlParts) {
+      if (p.body?.data) {
+        try {
+          htmlContent += base64UrlDecode(p.body.data);
+        } catch (e) {
+          console.warn('[LogBox] Failed to decode html part', e);
+        }
+      }
+    }
+    if (htmlContent.trim()) {
+      return cleanHtmlToRawText(htmlContent);
+    }
+  }
+
+  return snippet || '';
+}
+
+function cleanHtmlToRawText(html: string): string {
+  let text = html;
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  text = text.replace(/<[^>]+>/g, ' ');
+  text = text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+    
+  return text;
+}
+
+// isValidIp is moved to the top of the file
+
+// [FIX-11] 이메일 발신자 인증 검증 (SPF/DKIM/DMARC)
+export type EmailAuthResult = {
+  spf: 'pass' | 'fail' | 'softfail' | 'neutral' | 'none' | 'unknown';
+  dkim: 'pass' | 'fail' | 'none' | 'unknown';
+  dmarc: 'pass' | 'fail' | 'none' | 'unknown';
+  isAuthentic: boolean;
+};
+
+function parseAuthStatus(value: string, protocol: string): string {
+  const regex = new RegExp(`${protocol}=(\\w+)`, 'i');
+  const match = value.match(regex);
+  return match ? match[1].toLowerCase() : 'unknown';
+}
+
+export function checkEmailAuthenticity(
+  headers: Array<{ name: string; value: string }>
+): EmailAuthResult {
+  const authHeader = headers.find(
+    h => h.name.toLowerCase() === 'authentication-results'
+  );
+
+  if (!authHeader) {
+    return { spf: 'unknown', dkim: 'unknown', dmarc: 'unknown', isAuthentic: false };
+  }
+
+  const value = authHeader.value;
+  const spf = parseAuthStatus(value, 'spf') as EmailAuthResult['spf'];
+  const dkim = parseAuthStatus(value, 'dkim') as EmailAuthResult['dkim'];
+  const dmarc = parseAuthStatus(value, 'dmarc') as EmailAuthResult['dmarc'];
+
+  return {
+    spf,
+    dkim,
+    dmarc,
+    isAuthentic: spf === 'pass' && dkim === 'pass' && dmarc === 'pass',
+  };
+}
+
+export function extractIpPreflight(
+  msgJson: { payload?: GmailPart; snippet?: string },
+  rawBodyText: string,
+  platform: SecurityPlatform
+): { ip: string; isServerVerified: boolean } {
+  const ipRegex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g;
+
+  // 1. 헤더 영역 선 검사 (Received, X-Originating-IP 등)
+  const headers = msgJson.payload?.headers || [];
+  const headerIps: string[] = [];
+  
+  for (const header of headers) {
+    const nameLower = header.name.toLowerCase();
+    if (nameLower === 'x-originating-ip' || nameLower === 'x-sender-ip' || nameLower === 'cf-connecting-ip') {
+      const match = header.value.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/);
+      if (match && isValidIp(match[0])) {
+        headerIps.push(match[0]);
+      }
+    }
+  }
+
+  for (const header of headers) {
+    const nameLower = header.name.toLowerCase();
+    if (nameLower === 'received') {
+      const matches = header.value.match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g);
+      if (matches) {
+        for (const rip of matches) {
+          if (isValidIp(rip)) {
+            headerIps.push(rip);
+          }
+        }
+      }
+    }
+  }
+
+  const isPublicIp = (ipStr: string): boolean => {
+    if (ipStr.startsWith('127.') || ipStr.startsWith('10.') || ipStr.startsWith('192.168.')) return false;
+    if (ipStr.startsWith('172.')) {
+      const secondOctet = parseInt(ipStr.split('.')[1], 10);
+      if (secondOctet >= 16 && secondOctet <= 31) return false;
+    }
+    return true;
+  };
+
+  const publicHeaderIps = headerIps.filter(isPublicIp);
+
+  // 본문 및 스니펫에서 IP 매칭
+  const bodyIps: string[] = [];
+  let m;
+  while ((m = ipRegex.exec(rawBodyText)) !== null) {
+    if (isValidIp(m[0]) && isPublicIp(m[0])) {
+      bodyIps.push(m[0]);
+    }
+  }
+
+  const snippetIps: string[] = [];
+  const snippetMatch = (msgJson.snippet ?? '').match(/\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/g);
+  if (snippetMatch) {
+    for (const rip of snippetMatch) {
+      if (isValidIp(rip) && isPublicIp(rip)) {
+        snippetIps.push(rip);
+      }
+    }
+  }
+
+  // Type A 플랫폼 판별
+  const isTypeA = platform === 'google' || platform === 'github' || platform === 'cursor' || platform === 'naver' || platform === 'kakao' || platform === 'instagram' || platform === 'discord' || platform === 'netflix' || platform === 'steam' || platform === 'facebook' || platform === 'pinterest' || platform === 'lilys';
+
+  if (isTypeA) {
+    if (bodyIps.length > 0) {
+      return { ip: bodyIps[0], isServerVerified: false };
+    }
+    if (snippetIps.length > 0) {
+      return { ip: snippetIps[0], isServerVerified: false };
+    }
+    if (publicHeaderIps.length > 0) {
+      return { ip: publicHeaderIps[publicHeaderIps.length - 1], isServerVerified: false };
+    }
+  } else {
+    // Type B (MangoBoard, OpenAI) 또는 unknown: 헤더에서 공식 발신 서버 IP 추출 우선
+    if (publicHeaderIps.length > 0) {
+      return { ip: publicHeaderIps[0], isServerVerified: true };
+    }
+    if (bodyIps.length > 0) {
+      return { ip: bodyIps[0], isServerVerified: false };
+    }
+    if (snippetIps.length > 0) {
+      return { ip: snippetIps[0], isServerVerified: false };
+    }
+  }
+
+  return { ip: '플랫폼 미제공', isServerVerified: false };
 }
 
 async function resolveCoordinates(
@@ -223,6 +607,28 @@ async function resolveCoordinates(
   if (coordMatch) {
     return { latitude: Number(coordMatch[1]), longitude: Number(coordMatch[2]) };
   }
+
+  // Custom mock coordinates for common threat/login locations
+  const combined = bodyText.toLowerCase();
+  if (combined.includes('russia') || combined.includes('러시아') || combined.includes('moscow')) {
+    return { latitude: 55.7558, longitude: 37.6173 };
+  }
+  if (combined.includes('china') || combined.includes('중국') || combined.includes('beijing')) {
+    return { latitude: 39.9042, longitude: 116.4074 };
+  }
+  if (combined.includes('usa') || combined.includes('미국') || combined.includes('new york')) {
+    return { latitude: 40.7128, longitude: -74.0060 };
+  }
+  if (combined.includes('부산') || combined.includes('busan')) {
+    return { latitude: 35.1796, longitude: 129.0756 };
+  }
+  if (combined.includes('인천') || combined.includes('incheon')) {
+    return { latitude: 37.4563, longitude: 126.7052 };
+  }
+  if (combined.includes('서울') || combined.includes('seoul') || combined.includes('korea') || combined.includes('한국')) {
+    return { latitude: 37.5665, longitude: 126.9780 };
+  }
+
   const locPatterns: RegExp[] = [
     /Location[:]?\s*([\w\s,\-가-힣]+)/i,
     /(?:접속\s*지역|위치)[:：\s]*([^\n<]+)/i,
@@ -261,46 +667,135 @@ export async function gmailMessageToLogRecord(
 
   const subject = headers.subject ?? '';
   const from = headers.from ?? '';
-  const bodyText = collectBodyText(msgJson.payload, msgJson.snippet ?? '');
+  
+  // 1. 플랫폼 식별 선행 진행
   const platform = detectSecurityPlatform(subject, from, msgJson.snippet ?? '');
 
-  let raw = '';
-  let ip: string | undefined;
-  let deviceName: string | undefined;
+  // 2. 본문 정제 전 원본 텍스트 획득
+  const rawBodyText = collectRawBodyText(msgJson.payload, msgJson.snippet ?? '');
 
-  if (platform === 'google') {
-    ip = extractFirstRegex(bodyText, /(\d{1,3}(?:\.\d{1,3}){3})/) ?? undefined;
-    deviceName =
-      extractFirstRegex(bodyText, /Device[:]?\s*([\w\s\-\(\)]+)/i) ??
-      extractFirstRegex(bodyText, /<strong>Device<\/strong>:\s*([^<\n]+)/i) ??
-      undefined;
-    raw = summarizeGoogleSecurityEmail(bodyText, deviceName);
-  } else if (platform === 'naver') {
-    const parsed = parseNaverSecurityAlert(subject, bodyText);
-    ip = parsed.ip;
-    deviceName = parsed.deviceHint;
-    raw = parsed.summary;
-  } else if (platform === 'kakao') {
-    const parsed = parseKakaoSecurityAlert(subject, bodyText);
-    ip = parsed.ip;
-    deviceName = parsed.deviceHint;
-    raw = parsed.summary;
-  } else if (['instagram', 'discord', 'netflix', 'steam'].includes(platform)) {
-    const parsed = parseExternalSecurityAlert(platform, subject, bodyText);
-    ip = parsed.ip;
-    deviceName = parsed.deviceHint;
-    raw = parsed.summary;
-  } else {
-    raw = formatRecordSummary(subject || bodyText || msgJson.snippet);
-    ip = extractFirstRegex(bodyText, /(\d{1,3}(?:\.\d{1,3}){3})/) ?? undefined;
+  // 3. 0순위: 선(先) 만능 정규식 파싱을 통한 무유실 IP 추출 및 Type A/B 분류
+  const { ip, isServerVerified } = extractIpPreflight(msgJson, rawBodyText, platform);
+
+  // [FIX-11] 이메일 인증 결과 검증 (SPF/DKIM/DMARC)
+  const emailAuth = checkEmailAuthenticity(msgJson.payload?.headers || []);
+  const isSpoofSuspect = !emailAuth.isAuthentic && emailAuth.spf === 'fail';
+
+  // 4. UI 렌더링용 본문 정제 진행
+  const bodyTextClean = sanitizeHtmlAndLegalese(rawBodyText);
+  const bodyText = isSpoofSuspect
+    ? `⚠️ [보안 경고: 발신자 인증 실패 (SPF=${emailAuth.spf}, DKIM=${emailAuth.dkim})] \n${bodyTextClean}`
+    : bodyTextClean;
+
+  // Extract domain first
+  const domain = extractDomain(bodyText) || undefined;
+
+  // 5. Device extraction using regex
+  let deviceName: string | undefined = undefined;
+  const deviceRegexes = [
+    /(?:device|기기|디바이스|OS|기기명)[:：\s]+([^\n<·\(\)]+)/i,
+    /([a-zA-Z]+\s*PC|[a-zA-Z]+\s*Phone|[a-zA-Z]+\s*Tablet|iPhone|iPad|MacBook|Android|Windows|macOS|Linux)/i
+  ];
+  for (const rx of deviceRegexes) {
+    const match = bodyText.match(rx);
+    if (match && match[1]) {
+      deviceName = match[1].trim();
+      break;
+    }
   }
 
-  raw = escapeHtml(raw);
-  deviceName = deviceName ? escapeHtml(deviceName) : undefined;
+  if (!deviceName) {
+    if (/chrome/i.test(bodyText)) deviceName = 'Chrome';
+    else if (/safari/i.test(bodyText)) deviceName = 'Safari';
+    else if (/firefox/i.test(bodyText)) deviceName = 'Firefox';
+    else if (/iphone/i.test(bodyText)) deviceName = 'iPhone';
+    else if (/android/i.test(bodyText)) deviceName = 'Android';
+    else if (/windows/i.test(bodyText)) deviceName = 'Windows';
+    else if (/mac/i.test(bodyText)) deviceName = 'Mac';
+  }
 
-  const { latitude, longitude } = await resolveCoordinates(bodyText, platform, geocodingApiKey);
+  // Fallback Device
+  if (!deviceName) {
+    if (platform === 'instagram' || platform === 'kakao') {
+      deviceName = 'iPhone';
+    } else if (platform === 'cursor') {
+      deviceName = 'Windows PC';
+    } else if (isServerVerified) {
+      deviceName = 'SMTP Server';
+    } else {
+      deviceName = 'Windows PC';
+    }
+  }
 
-  const timeISO = headers.date ? new Date(headers.date).toISOString() : undefined;
+  // 6. Query GeoIP location from backend API
+  let locationHint = '알 수 없음';
+  let geoLatitude: number | undefined = undefined;
+  let geoLongitude: number | undefined = undefined;
+  if (ip && ip !== '플랫폼 미제공') {
+    try {
+      const geoRes = await fetch(`/api/geoip/${ip}`);
+      if (geoRes.ok) {
+        const geoData = await geoRes.json();
+        locationHint = geoData.city || '알 수 없음';
+        if (geoData.latitude !== undefined && geoData.longitude !== undefined) {
+          geoLatitude = geoData.latitude;
+          geoLongitude = geoData.longitude;
+        }
+      }
+    } catch (err) {
+      console.warn('[LogBox] GeoIP lookup failed', err);
+    }
+  }
+
+  // Standardize Device Info
+  let deviceOs = 'Windows';
+  let deviceBrowser = 'Chrome';
+  let deviceModel = 'Windows PC';
+
+  if (deviceName) {
+    if (/chrome/i.test(deviceName)) deviceBrowser = 'Chrome';
+    else if (/safari/i.test(deviceName)) deviceBrowser = 'Safari';
+    else if (/firefox/i.test(deviceName)) deviceBrowser = 'Firefox';
+    else if (/edge/i.test(deviceName)) deviceBrowser = 'Edge';
+
+    if (/windows/i.test(deviceName)) deviceOs = 'Windows';
+    else if (/mac/i.test(deviceName) || /os x/i.test(deviceName)) deviceOs = 'macOS';
+    else if (/iphone|ipad/i.test(deviceName)) deviceOs = 'iOS';
+    else if (/android/i.test(deviceName)) deviceOs = 'Android';
+    else if (/linux/i.test(deviceName)) deviceOs = 'Linux';
+
+    deviceModel = deviceName.split(' · ')[0] || deviceName;
+  }
+
+  // Formulate standard raw summary
+  let platformKo = '외부 서비스';
+  if (platform === 'google') platformKo = '구글 계정';
+  else if (platform === 'naver') platformKo = '네이버';
+  else if (platform === 'kakao') platformKo = '카카오';
+  else if (platform === 'instagram') platformKo = '인스타그램';
+  else if (platform === 'discord') platformKo = '디스코드';
+  else if (platform === 'netflix') platformKo = '넷플릭스';
+  else if (platform === 'steam') platformKo = '스팀';
+  else if (platform === 'facebook') platformKo = '페이스북';
+  else if (platform === 'pinterest') platformKo = '핀터레스트';
+  else if (platform === 'lilys') platformKo = 'Lilys AI';
+  else if (platform === 'github') platformKo = 'GitHub';
+  else if (platform === 'openai') platformKo = 'OpenAI';
+  else if (platform === 'tryhackme') platformKo = 'TryHackMe';
+  else if (platform === 'mangoboard') platformKo = '망고보드';
+  else if (platform === 'cursor') platformKo = 'Cursor';
+
+  const origin = locationHint;
+  const dest = '서울';
+  const raw = `[${platformKo}] 로그인 감지 · ${origin} → ${dest}`;
+
+  let { latitude, longitude } = await resolveCoordinates(bodyText, platform, geocodingApiKey);
+  if (geoLatitude !== undefined && geoLongitude !== undefined) {
+    latitude = geoLatitude;
+    longitude = geoLongitude;
+  }
+
+  const timeISO = headers.date ? new Date(headers.date).toISOString() : new Date().toISOString();
 
   return {
     id: msgJson.id,
@@ -308,22 +803,35 @@ export async function gmailMessageToLogRecord(
     ip,
     latitude,
     longitude,
-    device: deviceName
-      ? { id: `device-${msgJson.id}`, name: deviceName, trusted: false, lastSeen: timeISO }
-      : undefined,
+    device: {
+      id: `device-${msgJson.id}`,
+      name: deviceName,
+      model: deviceModel,
+      os: deviceOs,
+      browser: deviceBrowser,
+      trusted: isDeviceTrusted(deviceName),
+      lastSeen: timeISO,
+      lastActive: timeISO,
+      ip: ip,
+      location: locationHint,
+    },
     timeISO,
-    threatLevel: getThreatLevel(0),
+    threatLevel: undefined, // Let enrichThreatLevels calculate it dynamically!
     raw,
     body: bodyText,
     from: from,
     subject: subject,
+    domain,
+    snippet: msgJson.snippet,
+    isServerVerified,
+    authMode: isServerVerified ? 'TypeB' : 'TypeA',
   };
 }
 
 export async function fetchSecurityEmails(accessToken: string, geocodingApiKey?: string): Promise<LogBoxRecord[]> {
   try {
     const q = buildGmailSecurityListQuery();
-    const listUrl = `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=15&q=${encodeURIComponent(q)}`;
+    const listUrl = `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=30&q=${encodeURIComponent(q)}`;
     const listRes = await fetch(listUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!listRes.ok) {
       if (listRes.status === 401) {

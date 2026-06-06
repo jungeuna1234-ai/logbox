@@ -5,7 +5,9 @@
 
 export const NAVER_OAUTH_CONFIG = {
   CLIENT_ID: '9pstr6cexosS8yhrPmu9',
-  CALLBACK_URL: 'http://localhost:5173/oauth/callback/naver',
+  CALLBACK_URL: (import.meta.env.VITE_NAVER_CALLBACK_URL as string) || (typeof window !== 'undefined'
+    ? `${window.location.origin}/oauth/callback/naver`
+    : 'http://localhost:5173/oauth/callback/naver'),
 } as const;
 
 export function generateOAuthState(): string {

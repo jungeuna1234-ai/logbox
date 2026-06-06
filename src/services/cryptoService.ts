@@ -65,17 +65,17 @@ function resolveStoragePass(): string {
     );
   }
 
-  // 세션 기반 임시 키 (탭 종료 시 소멸 → 보안성 향상)
-  if (typeof window !== 'undefined' && window.sessionStorage) {
-    const SESSION_KEY = '__logbox_session_key__';
-    let sessionKey = window.sessionStorage.getItem(SESSION_KEY);
-    if (!sessionKey) {
+  // 로컬 스토리지 기반 영속 키 (크로스 오리진 리다이렉트 시 유실 방지)
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const FALLBACK_KEY = '__logbox_fallback_key__';
+    let fallbackKey = window.localStorage.getItem(FALLBACK_KEY);
+    if (!fallbackKey) {
       const array = new Uint8Array(32);
       crypto.getRandomValues(array);
-      sessionKey = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
-      window.sessionStorage.setItem(SESSION_KEY, sessionKey);
+      fallbackKey = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+      window.localStorage.setItem(FALLBACK_KEY, fallbackKey);
     }
-    return sessionKey;
+    return fallbackKey;
   }
 
   return 'logbox-ssr-fallback-' + Date.now();

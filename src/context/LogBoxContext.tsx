@@ -396,7 +396,7 @@ function reducer(state: State, action: Action): State {
     case 'DELETE_RECORD':
       return { ...state, records: state.records.filter((r) => r.id !== action.id) };
     case 'SET_DEVICES':
-      return { ...state, devices: enrichDevicesWithCurrent(state.isDemoMode ? action.devices : action.devices.filter(d => !isMockDeviceId(d.id))) };
+      return { ...state, devices: enrichDevicesWithCurrent(state.isDemoMode ? (action.devices || []) : (Array.isArray(action.devices) ? action.devices.filter(d => !isMockDeviceId(d.id)) : [])) };
     case 'ADD_DEVICE':
       return { ...state, devices: enrichDevicesWithCurrent(state.isDemoMode ? [action.device, ...state.devices] : [action.device, ...state.devices].filter(d => !isMockDeviceId(d.id))) };
     case 'REMOVE_DEVICE':
@@ -428,7 +428,7 @@ function reducer(state: State, action: Action): State {
         isDemoMode: false,
         isUnlocked: true,
         records: stripMockRecords(action.records),
-        devices: enrichDevicesWithCurrent(action.devices.filter(d => !isMockDeviceId(d.id))),
+        devices: enrichDevicesWithCurrent(Array.isArray(action.devices) ? action.devices.filter(d => !isMockDeviceId(d.id)) : []),
       };
     case 'SIGN_OUT':
       return {
@@ -537,15 +537,19 @@ export const LogBoxProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const res = await axios.get('/api/user');
         const data = res.data;
-        userProfile = data.userProfile;
-        geocodingApiKey = data.geocodingApiKey;
-        bases = data.bases;
-        securityLogs = data.securityLogs;
-        dbRecords = data.records;
-        dbDevices = data.devices;
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          userProfile = data.userProfile ?? null;
+          geocodingApiKey = data.geocodingApiKey ?? null;
+          bases = Array.isArray(data.bases) ? data.bases : [];
+          securityLogs = Array.isArray(data.securityLogs) ? data.securityLogs : [];
+          dbRecords = Array.isArray(data.records) ? data.records : [];
+          dbDevices = Array.isArray(data.devices) ? data.devices : [];
 
-        if (Array.isArray(data.trustedDeviceNames)) {
-          saveEncryptedSync('trusted_devices', data.trustedDeviceNames, STORAGE_PASS);
+          if (Array.isArray(data.trustedDeviceNames)) {
+            saveEncryptedSync('trusted_devices', data.trustedDeviceNames, STORAGE_PASS);
+          }
+        } else {
+          throw new Error('Invalid JSON response from server');
         }
       } catch (dbErr) {
         console.warn('[LogBox] Fetch user state from DB failed during login', dbErr);
@@ -659,18 +663,22 @@ export const LogBoxProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           const res = await axios.get('/api/user');
           const data = res.data;
-          userProfile = data.userProfile;
-          geocodingApiKey = data.geocodingApiKey;
-          dbBases = data.bases;
-          dbSecurityLogs = data.securityLogs;
-          dbRecords = data.records;
-          dbDevices = data.devices;
+          if (data && typeof data === 'object' && !Array.isArray(data)) {
+            userProfile = data.userProfile ?? null;
+            geocodingApiKey = data.geocodingApiKey ?? null;
+            dbBases = Array.isArray(data.bases) ? data.bases : [];
+            dbSecurityLogs = Array.isArray(data.securityLogs) ? data.securityLogs : [];
+            dbRecords = Array.isArray(data.records) ? data.records : [];
+            dbDevices = Array.isArray(data.devices) ? data.devices : [];
 
-          if (Array.isArray(data.trustedDeviceNames)) {
-            saveEncryptedSync('trusted_devices', data.trustedDeviceNames, STORAGE_PASS);
-          }
-          if (geocodingApiKey) {
-            dispatch({ type: 'SET_GEOCODING_KEY', key: geocodingApiKey });
+            if (Array.isArray(data.trustedDeviceNames)) {
+              saveEncryptedSync('trusted_devices', data.trustedDeviceNames, STORAGE_PASS);
+            }
+            if (geocodingApiKey) {
+              dispatch({ type: 'SET_GEOCODING_KEY', key: geocodingApiKey });
+            }
+          } else {
+            throw new Error('Invalid JSON response from server');
           }
         } catch (dbErr) {
           console.warn('[LogBox] DB fetch failed during hydration', dbErr);

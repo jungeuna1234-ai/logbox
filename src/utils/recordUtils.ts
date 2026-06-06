@@ -10,7 +10,8 @@ export function isMockRecordId(id: string): boolean {
   return MOCK_RECORD_ID_PREFIXES.some((p) => id.startsWith(p));
 }
 
-export function stripMockRecords(records: LogBoxRecord[]): LogBoxRecord[] {
+export function stripMockRecords(records: LogBoxRecord[] | undefined | null): LogBoxRecord[] {
+  if (!records || !Array.isArray(records)) return [];
   return records.filter((r) => !isMockRecordId(r.id));
 }
 

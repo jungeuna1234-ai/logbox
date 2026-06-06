@@ -113,6 +113,44 @@ PayPal 보안팀`,
     ip: '플랫폼 미제공',
     location: '위치 확인 불가',
   },
+  {
+    id: 'email-005',
+    from: 'noreply@github.com',
+    subject: '[GitHub] 새로운 기기에서 로그인 감지',
+    timeAgo: '4시간 전',
+    riskScore: 15,
+    platform: 'github',
+    body: `안녕하세요,
+
+최근 귀하의 GitHub 계정(jungeuna1234)에 새로운 기기로부터 로그인이 감지되었습니다.
+
+기기: Windows / Chrome
+IP: 192.30.252.0
+위치: 미국 오레곤 AWS 리전
+
+본인의 로그인인 경우 추가 조치가 필요하지 않습니다. 본인의 로그인이 아닌 경우 계정 보안 설정을 검토하십시오.`,
+    ip: '192.30.252.0',
+    location: '미국 오레곤 AWS 리전',
+    isServerVerified: true,
+  },
+  {
+    id: 'email-006',
+    from: 'no-reply@accounts.google.com',
+    subject: '보안 알림: 새 기기에서 Google 계정 로그인',
+    timeAgo: '5시간 전',
+    riskScore: 15,
+    platform: 'google',
+    body: `Google 계정이 새로운 Windows 기기에서 로그인되었습니다.
+
+기기: Chrome / Windows
+IP: 209.85.220.41
+위치: 미국 오레곤 AWS 리전
+
+본인의 활동이 맞다면 본 조치 안내를 무시하셔도 됩니다. 본인의 활동이 아닌 경우 비밀번호를 변경해 주십시오.`,
+    ip: '209.85.220.41',
+    location: '미국 오레곤 AWS 리전',
+    isServerVerified: true,
+  },
 ];
 
 const NAVER_PHISHING_EMAIL: Email = {

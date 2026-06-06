@@ -6,7 +6,7 @@ import { fetchSecurityEmails } from '../services/gmailService';
 import { fetchGoogleUserProfile } from '../services/googleUserService';
 import { getThreatLevel } from '../utils/geoUtils';
 import { enrichThreatLevels } from '../utils/enrichRecords';
-import { buildCurrentTrustedDevice, getCurrentDeviceFingerprint, isDeviceTrusted } from '../utils/deviceUtils';
+import { buildCurrentTrustedDevice, getCurrentDeviceFingerprint, isDeviceTrusted, addTrustedDeviceName } from '../utils/deviceUtils';
 import {
   isDemoToken,
   isTokenExpired,
@@ -945,16 +945,57 @@ export const LogBoxProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [state.records]);
 
   const blockAccessHandler = useCallback((id?: string) => {
-    // TODO: extend with actual block access workflow in future.
-    // eslint-disable-next-line no-console
-    console.warn('[LogBox] blockAccessHandler invoked', { id });
-  }, []);
+    if (!id) return;
+    if (state.isDemoMode) {
+      dispatch({ type: 'DELETE_RECORD', id });
+      dispatch({
+        type: 'SET_DEVICES',
+        devices: state.devices.filter(d => d.id !== id && d.name !== id)
+      });
+      const nowStr = new Date().toISOString();
+      dispatch({
+        type: 'ADD_SECURITY_LOG',
+        log: {
+          id: `sec-log-${Date.now()}`,
+          timestamp: nowStr,
+          level: 'TOKEN_TAMPERED',
+          message: `해커 기기/세션(${id})의 접근이 즉시 차단되었습니다.`,
+        }
+      });
+    } else {
+      console.warn('[LogBox] blockAccessHandler invoked', { id });
+    }
+  }, [state.isDemoMode, state.devices]);
 
-  const whitelistHandler = useCallback((id?: string) => {
-    // TODO: extend with actual whitelist workflow in future.
-    // eslint-disable-next-line no-console
-    console.warn('[LogBox] whitelistHandler invoked', { id });
-  }, []);
+  const whitelistHandler = useCallback((deviceName?: string) => {
+    if (!deviceName) return;
+    if (state.isDemoMode) {
+      addTrustedDeviceName(deviceName);
+      dispatch({
+        type: 'SET_DEVICES',
+        devices: state.devices.map(d => d.name === deviceName ? { ...d, trusted: true } : d)
+      });
+      dispatch({
+        type: 'SET_RECORDS',
+        records: state.records.map(r => r.device?.name === deviceName ? {
+          ...r,
+          device: { ...r.device, trusted: true }
+        } : r)
+      });
+      const nowStr = new Date().toISOString();
+      dispatch({
+        type: 'ADD_SECURITY_LOG',
+        log: {
+          id: `sec-log-${Date.now()}`,
+          timestamp: nowStr,
+          level: 'INFO',
+          message: `사용자 본인 기기(${deviceName})가 신뢰 기기로 등록되었습니다.`,
+        }
+      });
+    } else {
+      console.warn('[LogBox] whitelistHandler invoked', { deviceName });
+    }
+  }, [state.isDemoMode, state.devices, state.records]);
 
   const addRecord = useCallback(async (r: LogBoxRecord): Promise<void> => {
     dispatch({ type: 'ADD_RECORD', record: r });

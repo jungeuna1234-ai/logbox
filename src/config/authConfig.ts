@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────────
 
 export const NAVER_OAUTH_CONFIG = {
-  CLIENT_ID: 'ixKgoLD_Sl',
+  CLIENT_ID: '9pstr6cexosS8yhrPmu9',
   CALLBACK_URL: 'http://localhost:5173/oauth/callback/naver',
 } as const;
 

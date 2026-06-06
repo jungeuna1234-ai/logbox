@@ -94,7 +94,13 @@ const DashboardPage: React.FC = () => {
     [displayLogs],
   );
 
-  const isThreatDetected = false;
+  const isThreatDetected = useMemo(() => {
+    return recentLogs.some((record) => {
+      const isCritical = (record.threatLevel ?? 0) >= ThreatLevel.Critical;
+      const isTrusted = record.device?.name ? isDeviceTrusted(record.device.name) : false;
+      return isCritical && !isTrusted;
+    });
+  }, [recentLogs]);
 
   const attackRecord = recentLogs.find((record) => (record.threatLevel ?? 0) >= ThreatLevel.Critical) ?? recentLogs[0];
   
@@ -243,14 +249,14 @@ const DashboardPage: React.FC = () => {
               </div>
               <div className="flex flex-col gap-2.5">
                 <button
-                  onClick={() => blockAccessHandler()}
+                  onClick={() => blockAccessHandler(attackRecord?.id)}
                   className="w-full bg-[#FF2E63] text-[#0B0C10] font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-[#ff4d7c] active:scale-95 transition-all duration-200 text-sm"
                 >
                   <span className="material-symbols-outlined text-sm">block</span>
                   해커 기기 차단하기
                 </button>
                 <button
-                  onClick={() => whitelistHandler()}
+                  onClick={() => whitelistHandler(attackRecord?.device?.name)}
                   className="w-full border border-white/10 text-slate-400 font-medium py-2.5 rounded-xl hover:bg-white/5 active:scale-95 transition-all duration-200 text-xs tracking-wider font-mono"
                 >
                   내가 접속한 게 맞아요
@@ -394,8 +400,47 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
   };
 
   const rowStatusBadge = (): React.ReactNode => {
+    if (record.isServerVerified) {
+      return (
+        <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#00F5D4] bg-[#00F5D4]/15 border border-[#00F5D4]/20">
+          서버 인증
+        </span>
+      );
+    }
+    
+    const isTrusted = record.device?.name ? isDeviceTrusted(record.device.name) : false;
+    if (isTrusted) {
+      return (
+        <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#00F5D4] bg-[#00F5D4]/15 border border-[#00F5D4]/20">
+          신뢰 기기
+        </span>
+      );
+    }
+
+    const level = record.threatLevel ?? 0;
+    if (level === ThreatLevel.Critical) {
+      return (
+        <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#FF2E63] bg-[#FF2E63]/15 border border-[#FF2E63]/20 animate-pulse">
+          위험 감지
+        </span>
+      );
+    }
+    if (level === ThreatLevel.High) {
+      return (
+        <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-orange-400 bg-orange-400/15 border border-orange-400/20">
+          의심 접속
+        </span>
+      );
+    }
+    if (level === ThreatLevel.Medium) {
+      return (
+        <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-yellow-400 bg-yellow-400/15 border border-yellow-400/20">
+          주의 접속
+        </span>
+      );
+    }
     return (
-      <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-[#00F5D4] bg-[#00F5D4]/15 border border-[#00F5D4]/20">
+      <span className="text-xs px-2.5 py-1 rounded-full font-semibold text-slate-400 bg-slate-400/15 border border-white/10">
         정상 수신
       </span>
     );

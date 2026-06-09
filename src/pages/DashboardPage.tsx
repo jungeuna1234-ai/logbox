@@ -393,7 +393,19 @@ const InlineLogItem: React.FC<{ record: LogBoxRecord }> = ({ record }) => {
   const formatTimeLine = (iso?: string) => {
     if (!iso) return '';
     try {
-      return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+      const d = new Date(iso);
+      const now = new Date();
+      const isToday =
+        d.getDate() === now.getDate() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear();
+
+      const timeStr = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+      if (isToday) {
+        return timeStr;
+      } else {
+        return `${d.getMonth() + 1}월 ${d.getDate()}일 ${timeStr}`;
+      }
     } catch {
       return iso;
     }

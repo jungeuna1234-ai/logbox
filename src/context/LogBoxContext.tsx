@@ -126,6 +126,30 @@ function extractUniqueDevices(records: LogBoxRecord[], currentDevice: TrustedDev
   return Array.from(map.values());
 }
 
+const DEMO_DATE_OFFSETS: Record<string, { daysAgo: number; hour: number; minute: number }> = {
+  'rec-google-1': { daysAgo: 7, hour: 14, minute: 32 },
+  'rec-naver-1': { daysAgo: 6, hour: 9, minute: 15 },
+  'rec-ig-1': { daysAgo: 5, hour: 22, minute: 10 },
+  'rec-discord-1': { daysAgo: 4, hour: 11, minute: 45 },
+  'rec-netflix-1': { daysAgo: 3, hour: 20, minute: 5 },
+  'rec-steam-1': { daysAgo: 2, hour: 18, minute: 12 },
+  'rec-yt-1': { daysAgo: 1, hour: 13, minute: 50 },
+  'rec-kakao-1': { daysAgo: 0, hour: 8, minute: 30 },
+  'rec-cursor-1': { daysAgo: 0, hour: 10, minute: 15 },
+  'rec-mangoboard-1': { daysAgo: 0, hour: 12, minute: 0 },
+  'rec-openai-1': { daysAgo: 0, hour: 15, minute: 40 },
+};
+
+function getDemoRecordTime(id: string): string {
+  const config = DEMO_DATE_OFFSETS[id];
+  const date = new Date();
+  if (config) {
+    date.setDate(date.getDate() - config.daysAgo);
+    date.setHours(config.hour, config.minute, 0, 0);
+  }
+  return date.toISOString();
+}
+
 const DEMO_RECORDS: LogBoxRecord[] = [
   {
     id: 'rec-google-1',
@@ -335,11 +359,14 @@ const initialMock = (): State => {
       devices = [current];
     }
   } else {
-    records = DEMO_RECORDS.map((r) => ({
-      ...r,
-      timeISO: now,
-      device: r.device ? { ...r.device, lastActive: now, lastSeen: now } : undefined,
-    }));
+    records = DEMO_RECORDS.map((r) => {
+      const recordISO = getDemoRecordTime(r.id);
+      return {
+        ...r,
+        timeISO: recordISO,
+        device: r.device ? { ...r.device, lastActive: recordISO, lastSeen: recordISO } : undefined,
+      };
+    });
     devices = enrichDevicesWithCurrent([
       current,
       ...records.map((r) => r.device).filter((d): d is TrustedDevice => Boolean(d)),
@@ -618,11 +645,14 @@ export const LogBoxProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           dispatch({ type: 'AUTH_DEMO', token });
           const now = new Date().toISOString();
           const current = buildCurrentTrustedDevice();
-          const localDemoRecords: LogBoxRecord[] = DEMO_RECORDS.map((r) => ({
-            ...r,
-            timeISO: now,
-            device: r.device ? { ...r.device, lastActive: now, lastSeen: now } : undefined,
-          }));
+          const localDemoRecords: LogBoxRecord[] = DEMO_RECORDS.map((r) => {
+            const recordISO = getDemoRecordTime(r.id);
+            return {
+              ...r,
+              timeISO: recordISO,
+              device: r.device ? { ...r.device, lastActive: recordISO, lastSeen: recordISO } : undefined,
+            };
+          });
           const localDemoDevices = enrichDevicesWithCurrent([
             current,
             ...(localDemoRecords.map((r) => r.device).filter(Boolean) as TrustedDevice[]),
